@@ -1,0 +1,29 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function signedIn() { return request.auth != null; }
+    function isSuperAdmin() { return signedIn() && request.auth.uid == "M8WKl0BlBnPanTU6Hh60SumTpQu1"; }
+
+    function userDoc() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function role() { return signedIn() ? userDoc().role : null; }
+    function myShopId() { return signedIn() ? userDoc().shopId : null; }
+
+    function isAdmin(shopId) {
+      return isSuperAdmin() || (signedIn() && role() == "admin" && myShopId() == shopId);
+    }
+
+    // Chek import rasmlari
+    match /shops/{shopId}/receipt_imports/{importId}/{fileName} {
+      allow read, write: if isAdmin(shopId);
+    }
+
+    // Default: deny
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

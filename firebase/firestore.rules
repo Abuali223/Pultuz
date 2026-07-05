@@ -1,0 +1,408 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // =========================
+    // 0) Helper Functions
+    // =========================
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // ✅ SUPER ADMIN UID (sizniki)
+    function isSuperAdmin() {
+      return signedIn() && request.auth.uid == "M8WKl0BlBnPanTU6Hh60SumTpQu1";
+    }
+
+    function userDocPath() {
+      return /databases/$(database)/documents/users/$(request.auth.uid);
+    }
+
+    function hasUserDoc() {
+      return signedIn() && exists(userDocPath());
+    }
+
+    function userData() {
+      return hasUserDoc() ? get(userDocPath()).data : null;
+    }
+
+    function role() {
+      return userData() != null ? userData().role : null;
+    }
+
+    function myShopId() {
+      return userData() != null ? userData().shopId : null;
+    }
+
+    function isAdmin() {
+      return isSuperAdmin() || role() == "admin";
+    }
+
+    function isCashier() {
+      return isAdmin() || role() == "cashier";
+    }
+
+    // Omborchi (warehouse) — kirim va ombor bilan ishlaydi.
+    function isWarehouse() {
+      return isAdmin() || role() == "warehouse";
+    }
+
+    // Hodim (yozish huquqiga ega rollar): admin, sotuvchi, omborchi.
+    function isStaff() {
+      return isCashier() || role() == "warehouse";
+    }
+
+    // O'qish huquqi: barcha hodimlar + faqat ko'ruvchi (viewer) + accountant (eski nom).
+    function isViewer() {
+      return isStaff() || role() == "viewer" || role() == "accountant";
+    }
+
+    // Shop izolyatsiya (super admin hamma shopga kira oladi)
+    function inMyShop(shopId) {
+      return isSuperAdmin() || (hasUserDoc() && myShopId() == shopId);
+    }
+
+    // PIN gate (custom claim).
+    // FIX: verifyAdminPin funksiyasi endi `pinVerified: true` ham o'rnatadi (avval
+    // faqat pinVerifiedUntil/pinShopId edi -> bu yerdagi tekshiruv doim false edi).
+    // Bundan tashqari 5-daqiqalik muddat (pinVerifiedUntil) shu yerda majburlanadi.
+    function pinVerified() {
+      return signedIn()
+        && request.auth.token.pinVerified == true
+        && (
+          request.auth.token.pinVerifiedUntil == null
+          || request.time.toMillis() < request.auth.token.pinVerifiedUntil
+        );
+    }
+
+    
+    // Product stock field can be stored as `stock` (new) or `qty` (old).
+    function productStock(data) {
+      return data.stock != null ? data.stock : data.qty;
+    }
+
+function dangerousAllowed() {
+      return isAdmin() || (role() == "cashier" && pinVerified());
+    }
+
+    // =========================
+    // 1) USERS ✅ (ADMIN o‘z shopidagi hodimlarni ko‘ra oladi)
+    // =========================
+    match /users/{uid} {
+
+      // ✅ O‘zi ko‘radi
+      // ✅ SuperAdmin hamma userlarni ko‘radi
+      // ✅ Admin o‘z shopidagi userlarni ko‘ra oladi (hodimlar ro‘yxati uchun kerak)
+      allow read: if signedIn()
+        && (
+          request.auth.uid == uid
+          || isSuperAdmin()
+          || (isAdmin() && resource.data.shopId == myShopId())
+        );
+
+      // User o‘zi yaratadi
+      allow create: if signedIn() && request.auth.uid == uid
+        // user faqat "pending" rol bilan ochila oladi (admin/cashier qo‘ya olmaydi)
+        && (!request.resource.data.keys().hasAny(["role"]) || request.resource.data.role == "pending")
+        && (!request.resource.data.keys().hasAny(["shopId"]) || request.resource.data.shopId == "");
+
+      // User o‘zi update qiladi, lekin role/shopId ni o‘zgartira olmaydi
+      allow update: if isSuperAdmin()
+        || (
+          signedIn()
+          && request.auth.uid == uid
+          && !request.resource.data.diff(resource.data).affectedKeys()
+              .hasAny(["role", "shopId"])
+        );
+
+      allow delete: if isSuperAdmin();
+    }
+
+    // =========================
+    // 2) STAFF REQUESTS (ROOT) ✅
+    // =========================
+    match /staff_requests/{reqId} {
+
+      // Hodim so‘rov yuboradi
+      allow create: if signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.shopId is string
+        // UI da Shop ID kamida 4 ta belgi bo'lishi shart
+        && request.resource.data.shopId.size() >= 4;
+
+      // Super admin hammasini ko‘radi
+      // Admin o‘z shopidagi so‘rovlarni ko‘radi
+      // Hodim faqat o‘z so‘rovini ko‘radi
+      allow read: if isSuperAdmin()
+        || (isAdmin() && resource.data.shopId == myShopId())
+        || (signedIn() && resource.data.uid == request.auth.uid);
+
+      // Hodim so‘rovini bekor qila olsin (faqat note/cancel)
+      allow update: if signedIn()
+        && resource.data.uid == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(["note", "updatedAt", "canceled"]);
+
+      // Delete faqat SuperAdmin (xohlasangiz adminni ham qo‘shamiz)
+      allow delete: if isSuperAdmin();
+
+    }
+
+    // =========================
+    // 3) OWNER REQUESTS (ROOT) ✅
+    // =========================
+    match /owner_requests/{reqId} {
+
+      // User biznes egasi bo‘lish uchun so‘rov yuboradi
+      allow create: if signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 2
+        && request.resource.data.status == "pending";
+
+      // Super admin hammasini ko‘radi
+      // User faqat o‘z so‘rovini ko‘radi
+      allow read: if isSuperAdmin()
+        || (signedIn() && resource.data.uid == request.auth.uid);
+
+      // Update faqat SuperAdmin (approve/reject)
+      allow update: if isSuperAdmin();
+
+      allow delete: if isSuperAdmin();
+    }
+
+
+    // =========================
+    // 3) PUBLIC SETTINGS (CONTACT)
+    // =========================
+    match /public_settings/{docId} {
+      allow read: if true;
+      allow create, update, delete: if isSuperAdmin();
+
+      // =========================
+      // 4.X) PRIVATE (server-only)
+      // Tokenlar / secretlar shu yerda turadi:
+      //   shops/{shopId}/private/...
+      // Client hech qachon o‘qimasin/yozmasin
+      // =========================
+      match /private/{docId=**} {
+        allow read, write: if false;
+      }
+
+    }
+
+    // =========================
+    // 4) SHOPS
+    // =========================
+    match /shops/{shopId} {
+
+      allow read: if inMyShop(shopId) && isViewer();
+
+      // Shop yaratish / billing — faqat SuperAdmin yoki server (Cloud Function)
+      allow create, update, delete: if isSuperAdmin();
+
+      // =========================
+      // 4.X) PRIVATE (server-only)
+      // Tokenlar / secretlar shu yerda turadi:
+      //   shops/{shopId}/private/...
+      // Client hech qachon o‘qimasin/yozmasin
+      // =========================
+      match /private/{docId=**} {
+        allow read, write: if false;
+      }
+
+
+      // =========================
+      // 4.1) PRODUCTS
+      // =========================
+      match /products/{productId} {
+        allow read: if inMyShop(shopId) && isViewer();
+
+        // Katalog yaratish/o'chirish — admin. (Boshlang'ich ombor 0 bo'lishi shart;
+        // ombor faqat server orqali kirim/savdo bilan o'zgaradi.)
+        allow create: if inMyShop(shopId) && isAdmin()
+          && (!("stock" in request.resource.data) || request.resource.data.stock == 0)
+          && (!("avgCost" in request.resource.data) || request.resource.data.avgCost == 0);
+        allow delete: if inMyShop(shopId) && isAdmin();
+
+        // SERVER-AUTHORITATIVE: stock/avgCost/cutRemainderCm faqat Cloud Functions
+        // (admin SDK) orqali o'zgaradi. Client (admin) faqat katalog maydonlarini
+        // (nom, narx, kategoriya, ...) tahrirlay oladi.
+        allow update: if inMyShop(shopId) && isAdmin()
+          && !request.resource.data.diff(resource.data).affectedKeys()
+              .hasAny(["stock", "qty", "avgCost", "cutRemainderCm"]);
+      }
+
+      // =========================
+      // 4.2) CUSTOMERS ✅ (cashier ham ko‘radi/qo‘shadi)
+      // =========================
+      match /customers/{customerId} {
+        allow read: if inMyShop(shopId) && isViewer();
+        // Yangi mijoz balansi 0 dan boshlanadi; qarz/to'lov faqat server orqali o'zgaradi.
+        allow create: if inMyShop(shopId) && isCashier()
+          && (!("debt" in request.resource.data) || request.resource.data.debt == 0)
+          && (!("totalBought" in request.resource.data) || request.resource.data.totalBought == 0)
+          && (!("totalPaid" in request.resource.data) || request.resource.data.totalPaid == 0);
+        // Client faqat ma'lumot maydonlarini tahrirlaydi; balans server tomonida.
+        allow update: if inMyShop(shopId) && isCashier()
+          && !request.resource.data.diff(resource.data).affectedKeys()
+              .hasAny(["debt", "totalBought", "totalPaid"]);
+        allow delete: if inMyShop(shopId) && isAdmin();
+      }
+
+      // =========================
+      // 4.3) SUPPLIERS
+      // =========================
+      match /suppliers/{supplierId} {
+        allow read: if inMyShop(shopId) && isViewer();
+        allow create: if inMyShop(shopId) && isAdmin()
+          && (!("balance" in request.resource.data) || request.resource.data.balance == 0)
+          && (!("totalPurchased" in request.resource.data) || request.resource.data.totalPurchased == 0)
+          && (!("totalPaid" in request.resource.data) || request.resource.data.totalPaid == 0);
+        allow update: if inMyShop(shopId) && isAdmin()
+          && !request.resource.data.diff(resource.data).affectedKeys()
+              .hasAny(["balance", "totalPurchased", "totalPaid"]);
+        allow delete: if inMyShop(shopId) && isAdmin();
+      }
+
+      // =========================
+      // 4.4) SALES
+      // =========================
+      match /sales/{saleId} {
+        allow read: if inMyShop(shopId) && isViewer();
+        // SERVER-AUTHORITATIVE: savdo faqat createSaleTx/voidSaleTx (server) orqali yoziladi.
+        allow create, update: if false;
+        allow delete: if isSuperAdmin();
+      }
+
+      // =========================
+      // 4.5) PURCHASES (KIRIM)
+      // =========================
+      match /purchases/{purchaseId} {
+        allow read: if inMyShop(shopId) && isViewer();
+        // SERVER-AUTHORITATIVE: kirim faqat createPurchaseTx/voidPurchaseTx orqali.
+        allow create, update: if false;
+        allow delete: if isSuperAdmin();
+      }
+
+      // =========================
+      // 4.5b) RECEIPT IMPORTS (chek rasmlaridan kirim)
+      // =========================
+      match /receipt_imports/{importId} {
+        // faqat admin (shop ichida)
+        allow read: if inMyShop(shopId) && isAdmin();
+        allow create, update: if inMyShop(shopId) && isAdmin();
+        allow delete: if isSuperAdmin();
+      }
+
+      // =========================
+      // 4.6) EXPENSES
+      // =========================
+      match /expenses/{expenseId} {
+        allow read: if inMyShop(shopId) && isViewer();
+        // SERVER-AUTHORITATIVE: harajat faqat expenseTx orqali yoziladi.
+        allow create, update: if false;
+        allow delete: if isSuperAdmin();
+      }
+
+      // =========================
+      // 4.7) CASH TXNS
+      // =========================
+      // Eski kolleksiya (ishlatilmaydi) — to'liq yopiq.
+      match /cash_txns/{txId} {
+        allow read: if inMyShop(shopId) && isViewer();
+        allow create, update: if false;
+        allow delete: if isSuperAdmin();
+      }
+
+      // =========================
+      // 4.8) STOCK MOVEMENTS
+      // =========================
+      
+      // =========================
+      // 4.7B) CASH TRANSACTIONS (new name)
+      // =========================
+      match /cash_transactions/{txId} {
+        allow read: if inMyShop(shopId) && isViewer();
+        // SERVER-AUTHORITATIVE: kassa yozuvlari faqat server tomonida yoziladi (o'zgarmas iz).
+        allow create, update: if false;
+        allow delete: if isSuperAdmin();
+      }
+
+
+      // =========================
+      // 4.7C) SUPPLIER PAYMENTS (optional)
+      // =========================
+      match /supplier_payments/{payId} {
+        allow read: if inMyShop(shopId) && isViewer();
+        // SERVER-AUTHORITATIVE: supplierPaymentTx orqali.
+        allow create, update: if false;
+        allow delete: if isSuperAdmin();
+      }
+
+match /stock_movements/{moveId} {
+        allow read: if inMyShop(shopId) && isViewer();
+        // SERVER-AUTHORITATIVE: ombor harakatlari faqat server tomonida yoziladi (o'zgarmas iz).
+        allow create, update: if false;
+        allow delete: if isSuperAdmin();
+      }
+
+      // =========================
+      // 4.9) SETTINGS
+      // =========================
+      match /settings/{docId} {
+        allow read: if inMyShop(shopId) && isViewer();
+
+        allow create, update, delete: if inMyShop(shopId) && (
+          (docId == "billing" && isSuperAdmin())
+          || (docId != "billing" && isAdmin())
+        );
+      }
+
+      // =========================
+      // 4.10) PAYMENTS / RETURNS / AUDIT LOGS
+      // =========================
+      match /customer_payments/{payId} {
+        allow read: if inMyShop(shopId) && isViewer();
+        // SERVER-AUTHORITATIVE: customerPaymentTx orqali.
+        allow create, update: if false;
+        allow delete: if isSuperAdmin();
+      }
+
+      match /returns/{retId} {
+        allow read: if inMyShop(shopId) && isViewer();
+        // SERVER-AUTHORITATIVE: createReturnTx orqali.
+        allow create, update: if false;
+        allow delete: if isSuperAdmin();
+      }
+
+      // =========================
+      // 4.11) BUYURTMALAR (ORDERS)
+      // =========================
+      // Buyurtma ombor/pulga tegmaydi (savdo alohida, POS orqali) — shuning uchun
+      // client tomonidan yoziladi. Yaratish/yangilash: admin, sotuvchi, omborchi.
+      match /orders/{orderId} {
+        allow read: if inMyShop(shopId) && isViewer();
+        allow create: if inMyShop(shopId) && isStaff()
+          && request.resource.data.createdBy == request.auth.uid;
+        allow update: if inMyShop(shopId) && isStaff();
+        allow delete: if inMyShop(shopId) && isAdmin();
+      }
+
+      match /audit_logs/{logId} {
+        allow read: if inMyShop(shopId) && isAdmin();
+        // SERVER-AUTHORITATIVE: audit yozuvlari server tomonida (admin SDK) yoziladi.
+        allow create, update: if false;
+        allow delete: if isSuperAdmin();
+      }
+    }
+
+    // =========================
+    // 5) Default deny
+    // =========================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

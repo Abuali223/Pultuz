@@ -1,0 +1,308 @@
+html { font-size: 16px; }
+@media (max-width: 640px) { html { font-size: 17px; } }
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  ALI Biznes boshqaruv – premium, "deck" style design tokens
+  Soft cards, large radius, subtle borders. Works on phone/iPad/desktop.
+*/
+
+/*
+  ALI Biznes boshqaruv – 2025/2026 modern palette (Audit/POS friendly)
+  Brand: teal + accent blue. Surfaces stay very light for long sessions.
+
+  User-requested base tokens are kept (primary/secondary/accent/bg/card/border/text/muted).
+  Tailwind/shadcn-like tokens are mapped from these, with separate "surface" vars.
+*/
+
+
+
+:root {
+  /* ALI Biznes — Forest Gold (Dark Moss + Tropical Jade + Golden Fern) */
+  --primary: #284B59;      /* Dark Moss */
+  --secondary: #2E9A83;    /* Tropical Jade */
+  --accent: #D8B45A;       /* Golden Fern */
+
+  /* Deeper primary for sidebar gradient */
+  --primary-deep: #1D3A45;
+
+  /* RGB helpers */
+  --primary-rgb: 40 75 89;
+  --secondary-rgb: 46 154 131;
+  --accent-rgb: 216 180 90;
+  --primary-deep-rgb: 29 58 69;
+
+  /* Premium desktop sidebar tokens */
+  --sidebar-top-rgb: 26 98 103;
+  --sidebar-mid-rgb: 37 129 119;
+  --sidebar-bottom-rgb: 39 151 127;
+  --sidebar-border-rgb: 173 236 224;
+  --sidebar-text: #F7FFFD;
+  --sidebar-muted: #D8F4ED;
+  --sidebar-active-bg: rgba(255, 255, 255, 0.18);
+  --sidebar-active-border: rgba(255, 255, 255, 0.36);
+  --sidebar-gold: #E4C87A;
+
+
+  /* Neutrals (eye-friendly, long session) */
+  --bg: #F5F7F3;
+  --card: #FFFFFF;
+  --border: #D8E0D8;
+
+  --bg-rgb: 245 247 243;
+  --card-rgb: 255 255 255;
+  --border-rgb: 216 224 216;
+
+  --text: #1F2E35;
+  --muted: #61757D;
+
+  --text-rgb: 31 46 53;
+  --muted-rgb: 97 117 125;
+
+  --success: #2E9A83;
+  --warning: #B8862B;
+  --danger: #C44E4E;
+
+  --success-rgb: 46 154 131;
+  --warning-rgb: 184 134 43;
+  --danger-rgb: 196 78 78;
+
+  /* Soft surfaces */
+  --secondary-surface-rgb: 232 243 238;
+  --accent-surface-rgb: 248 241 222;
+  --muted-surface-rgb: 240 244 241;
+
+  --secondary-surface: rgb(var(--secondary-surface-rgb));
+  --accent-surface: rgb(var(--accent-surface-rgb));
+  --muted-surface: rgb(var(--muted-surface-rgb));
+
+  /* Tailwind semantic tokens */
+  --background: rgb(var(--bg-rgb));
+  --foreground: rgb(var(--text-rgb));
+
+  --card-foreground: rgb(var(--text-rgb));
+  --popover: rgb(var(--card-rgb));
+  --popover-foreground: rgb(var(--text-rgb));
+
+  --primary-foreground: #F8FBF9;
+  --secondary-foreground: #163730;
+  --muted-foreground: rgb(var(--muted-rgb));
+  --accent-foreground: #6E521B;
+
+  --destructive: rgb(var(--danger-rgb));
+  --destructive-foreground: #ffffff;
+
+  --input: rgb(var(--border-rgb));
+  --ring: rgb(var(--accent-rgb));
+
+  /* Radius */
+  --radius: 12px;
+  --radius-card: 12px;
+  --radius-input: 12px;
+  --radius-btn: 10px;
+  --radius-icon: 10px;
+
+  --font-sans: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  --font-heading: "Plus Jakarta Sans", Inter, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+
+html, body {
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--background);
+  color: var(--foreground);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Safe area helpers (iOS) */
+.pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
+.pt-safe { padding-top: env(safe-area-inset-top, 0px); }
+.pl-safe { padding-left: env(safe-area-inset-left, 0px); }
+.pr-safe { padding-right: env(safe-area-inset-right, 0px); }
+
+/* Hide scrollbar but allow scrolling */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Smooth interactions */
+button, a, [role="button"] { transition: all .15s ease; }
+
+::selection { background: color-mix(in oklab, var(--accent) 28%, transparent); }
+
+/* Better image rendering */
+img { image-rendering: -webkit-optimize-contrast; }
+
+
+:root { color-scheme: light; }
+
+@layer base {
+  html { font-size: 16px; }
+  body { @apply bg-background text-foreground; }
+  h1 { @apply text-2xl md:text-3xl font-semibold tracking-tight; }
+  h2 { @apply text-xl md:text-2xl font-semibold tracking-tight; }
+  h3 { @apply text-lg md:text-xl font-semibold tracking-tight; }
+}
+
+/* Tables: readable, modern, full-width */
+@layer components {
+  /* Desktop premium sidebar: Forest Gold dark variant */
+  .ali-premium-sidebar {
+    color: var(--sidebar-text);
+    border: 1px solid rgba(var(--sidebar-border-rgb), 0.42);
+    background:
+      radial-gradient(130% 90% at 0% 0%, rgba(255,255,255,0.09) 0%, rgba(255,255,255,0.00) 48%),
+      linear-gradient(180deg,
+        rgb(var(--sidebar-top-rgb)) 0%,
+        rgb(var(--sidebar-mid-rgb)) 52%,
+        rgb(var(--sidebar-bottom-rgb)) 100%);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.10),
+      inset 0 -1px 0 rgba(0,0,0,0.22),
+      0 18px 42px rgba(7, 35, 32, 0.32);
+  }
+
+  .ali-sidebar-link {
+    border: 1px solid transparent;
+  }
+
+  .ali-sidebar-link-idle {
+    color: var(--sidebar-text);
+    opacity: 0.95;
+  }
+
+  .ali-sidebar-link-idle:hover {
+    color: var(--sidebar-text);
+    background: rgba(255,255,255,0.14);
+    border-color: rgba(255,255,255,0.30);
+    opacity: 1;
+  }
+
+  .ali-sidebar-link-active {
+    color: var(--sidebar-text);
+    background: var(--sidebar-active-bg);
+    border-color: var(--sidebar-active-border);
+    box-shadow: 0 10px 26px rgba(5, 24, 20, 0.38);
+  }
+
+  .ali-sidebar-icon {
+    border: 1px solid rgba(255,255,255,0.24);
+    background: rgba(255,255,255,0.08);
+  }
+
+  .ali-sidebar-icon-active {
+    border-color: rgba(var(--accent-rgb), 0.62);
+    background: rgba(var(--accent-rgb), 0.24);
+  }
+
+  .ali-sidebar-footer {
+    border: 1px solid rgba(255,255,255,0.28);
+    background: rgba(255,255,255,0.12);
+    backdrop-filter: blur(6px);
+  }
+
+  .ali-premium-sidebar .text-muted,
+  .ali-premium-sidebar .text-muted-foreground {
+    color: var(--sidebar-muted) !important;
+  }
+
+
+  /* Cards / surfaces */
+  .ali-card { @apply bg-card text-card-foreground border border-border/60 shadow-soft; border-radius: var(--radius-card); }
+
+  /* Inputs */
+  .ali-input { @apply h-11 w-full border border-border bg-card px-4 text-base outline-none transition-shadow placeholder:text-muted-foreground focus:ring-2 focus:ring-accent/30; border-radius: var(--radius-input); }
+
+  /* Buttons */
+  .ali-btn { @apply inline-flex items-center justify-center gap-2 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:opacity-50 disabled:pointer-events-none active:scale-[0.99]; border-radius: var(--radius-btn); }
+  .ali-btn-primary { @apply bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm; }
+  .ali-btn-secondary { @apply bg-secondary/20 text-foreground hover:bg-secondary/30 border border-secondary/40 shadow-sm; }
+  .ali-btn-ghost { @apply bg-transparent text-foreground hover:bg-muted/60 border border-border/0; }
+  .ali-btn-danger { @apply bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-sm; }
+
+  /* Tables: readable, modern, full-width */
+  /* Tables: compact like classic POS/admin systems (more info on screen) */
+  .ali-table { @apply w-full text-[13px] sm:text-sm; }
+  /*
+    Jadval ustunlari: header va body cell'lar bir xil padding + alignment bo'lsin.
+    Aks holda (text-left majburlansa) "Kelish" kabi sarlavha bilan tagidagi raqamlar
+    bir-biriga to'g'ri tushmay qoladi.
+  */
+  .ali-table thead th { @apply text-muted-foreground font-semibold py-2 px-4 border-b border-border whitespace-nowrap; }
+  .ali-table tbody td { @apply py-2 px-4 border-b border-border align-middle; }
+  /* Tailwind class bilan boshqarish uchun */
+  .ali-table thead th.text-right, .ali-table tbody td.text-right { text-align: right; }
+  .ali-table thead th.text-center, .ali-table tbody td.text-center { text-align: center; }
+  
+  /* Extra gap between Summa (3rd col) and To'lov (4th col) for better readability */
+  .ali-table.ali-gap-st thead th:nth-child(3),
+  .ali-table.ali-gap-st tbody td:nth-child(3) { padding-right: 2.5rem; }
+
+  .ali-table.ali-gap-st thead th:nth-child(4),
+  .ali-table.ali-gap-st tbody td:nth-child(4) { padding-left: 2.5rem; }
+.ali-table tbody tr:hover { @apply bg-muted/40; }
+
+  /* Mobile label used inside table cells */
+  .ali-mobile-label { @apply sm:hidden text-[11px] font-medium text-muted-foreground; }
+
+  .ali-kpi { @apply text-2xl md:text-3xl font-semibold tracking-tight; }
+}
+
+
+
+/* =========================
+   iPad / iOS Safari fixes
+   ========================= */
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+}
+
+/* 100vh bug: biz JS orqali --vh qo'yamiz */
+html,
+body,
+#root {
+  height: 100%;
+  min-height: calc(var(--vh, 1vh) * 100);
+}
+
+/* iOS font auto-zoom + text-size adjust */
+html.ios body {
+  -webkit-text-size-adjust: 100%;
+}
+
+html.ios input,
+html.ios select,
+html.ios textarea,
+html.ios button {
+  font-size: 16px;
+}
+
+/* iOS smooth scrolling */
+html.ios .overflow-auto,
+html.ios .overflow-y-auto,
+html.ios .ios-scroll {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* tap highlight (iOS) */
+html.ios * {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Tailwind screen helpers iOS fix */
+html.ios .h-screen {
+  height: calc(var(--vh, 1vh) * 100) !important;
+}
+html.ios .min-h-screen {
+  min-height: calc(var(--vh, 1vh) * 100) !important;
+}

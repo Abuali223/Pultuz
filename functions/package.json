@@ -1,0 +1,26 @@
+{
+  "name": "shop-accounting-functions",
+  "private": true,
+  "main": "lib/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "build": "tsc && node scripts/copyAssets.js",
+    "serve": "firebase emulators:start --only functions",
+    "deploy": "firebase deploy --only functions",
+    "test": "vitest run"
+  },
+  "engines": {
+    "node": "20"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.6.0",
+    "firebase-functions": "^5.1.0",
+    "axios": "^1.7.9",
+    "form-data": "^4.0.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4",
+    "firebase-functions-test": "^3.3.0",
+    "vitest": "^2.1.4"
+  }
+}
