@@ -1298,7 +1298,7 @@ async function openaiExtractReceipt(args: { imageUrls: string[] }) {
 }
 
 export const receiptImportExtract = functions
-  .runWith({ timeoutSeconds: 300, memory: "1GB", secrets: ["OPENAI_API_KEY"] })
+  .runWith({ timeoutSeconds: 300, memory: "1GB" })
   .https.onCall(async (data, context) => {
     if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Auth required");
     const uid = context.auth.uid;
@@ -1813,7 +1813,7 @@ export const monthlyPdfReports = functions
   });
 
 
-export const sttUzbekVoice = functions.runWith({ secrets: ["UZBEKVOICE_API_KEY", "UZBEKVOICE_STT_API_KEY"] }).https.onCall(async (data, context) => {
+export const sttUzbekVoice = functions.https.onCall(async (data, context) => {
   if (!context.auth?.uid) {
     throw new functions.https.HttpsError("unauthenticated", "Login required");
   }

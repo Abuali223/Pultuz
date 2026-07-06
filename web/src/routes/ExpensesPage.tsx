@@ -9,15 +9,12 @@ import { createExpense, listExpenses } from "@/services/expenses";
 import { enqueueOfflineJob, shouldQueueByError } from "@/services/offlineQueue";
 import type { Expense, PaymentType } from "@/types";
 import { formatMoneyInput, parseMoneyInput, formatMoney } from "@/lib/money";
-import VoiceExpenseConfirmModal from "@/modules/voiceExpense/VoiceExpenseConfirmModal";
-import type { VoiceExpenseConfirm } from "@/modules/voiceExpense/parseVoiceExpense";
 
 export function ExpensesPage() {
   const toast = useToast();
   const { shopId, user } = useAuth();
   const [items, setItems] = React.useState<Expense[]>([]);
   const [open, setOpen] = React.useState(false);
-  const [voiceOpen, setVoiceOpen] = React.useState(false);
 
   const [category, setCategory] = React.useState("Ijara");
   const [amountText, setAmountText] = React.useState("0");
@@ -37,24 +34,6 @@ export function ExpensesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shopId]);
 
-
-  async function saveVoiceConfirmed(payload: VoiceExpenseConfirm) {
-    if (!user) return;
-    await createExpense({
-      id: "tmp",
-      shopId,
-      category: payload.category.trim(),
-      amount: payload.amount,
-      paymentType: payload.paymentType,
-      note: payload.note?.trim() || payload.transcript,
-      createdAt: Date.now(),
-      createdBy: user.uid,
-      source: "voice",
-      rawTranscript: payload.transcript,
-    } as any);
-    toast.push("Ovozli harajat saqlandi", "success");
-    refresh();
-  }
 
   async function save() {
     if (!user) return;
@@ -108,7 +87,7 @@ export function ExpensesPage() {
 
   return (
     <div className="space-y-4">
-      <Card title="Harajatlar" right={<div className="flex flex-wrap gap-2 justify-end"><Button onClick={() => setVoiceOpen(true)}>🎤 Ovozli kiritish</Button><Button variant="ghost" onClick={() => setOpen(true)}>+ Harajat qo'shish</Button></div>}>
+      <Card title="Harajatlar" right={<div className="flex flex-wrap gap-2 justify-end"><Button variant="ghost" onClick={() => setOpen(true)}>+ Harajat qo'shish</Button></div>}>
         {items.length === 0 ? (
           <div className="text-sm text-muted-foreground">Hozircha harajat yo'q.</div>
         ) : (
@@ -189,8 +168,6 @@ export function ExpensesPage() {
           </div>
         </div>
       </Modal>
-
-      <VoiceExpenseConfirmModal open={voiceOpen} onClose={() => setVoiceOpen(false)} onConfirm={saveVoiceConfirmed} />
     </div>
   );
 }
