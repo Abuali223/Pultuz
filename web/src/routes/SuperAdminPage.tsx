@@ -9,6 +9,7 @@ import {
   approveOwnerRequest,
   setSubscription,
   connectShopBot,
+  createShop,
   OwnerRequest,
   listShops,
 } from "@/services/superadmin";
@@ -20,8 +21,13 @@ import { isSuperAdminUser } from "@/auth/superAdmin";
 type Plan = "monthly" | "lifetime";
 
 export function SuperAdminPage() {
-  const { user } = useAuth();
+  const { user, shopId: myShopId } = useAuth();
   const isSuper = isSuperAdminUser(user);
+
+  // Do'kon yaratish (super admin o'ziga)
+  const [newShopName, setNewShopName] = React.useState("");
+  const [assignToMe, setAssignToMe] = React.useState(true);
+  const [creatingShop, setCreatingShop] = React.useState(false);
 
   const [staffReqs, setStaffReqs] = React.useState<StaffRequest[]>([]);
   const [ownerReqs, setOwnerReqs] = React.useState<OwnerRequest[]>([]);
@@ -68,6 +74,40 @@ export function SuperAdminPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSuper]);
 
+
+  async function createMyShop() {
+    const name = newShopName.trim();
+    if (!name) {
+      toast.error("Do'kon nomini kiriting");
+      return;
+    }
+    try {
+      setCreatingShop(true);
+      // assignToMe=true bo'lsa do'kon shu super admin akkauntiga biriktiriladi
+      // (role=admin, shopId) — shundan keyin barcha bo'limlar (mijoz/kirim/savdo) ishlaydi.
+      const res: any = await createShop({
+        name,
+        ownerUid: assignToMe ? user?.uid : undefined,
+      });
+      const sid = res?.shopId || res?.data?.shopId || "";
+      if (assignToMe) {
+        toast.success(`Do'kon yaratildi ✅ Shop ID: ${sid}. Sahifa yangilanadi...`);
+        // AuthProvider shopId ni auth o'zgarishida o'qiydi — to'liq reload kerak.
+        setTimeout(() => {
+          window.location.href = "/pos";
+        }, 1200);
+      } else {
+        toast.success(`Do'kon yaratildi ✅ Shop ID: ${sid}`);
+        setNewShopName("");
+        // ro'yxatni yangilaymiz
+        listShops().then((rows: any[]) => setShops(rows || [])).catch(() => {});
+      }
+    } catch (e: any) {
+      toast.error(e?.message || "Do'kon yaratishda xatolik");
+    } finally {
+      setCreatingShop(false);
+    }
+  }
 
   async function linkShopBot() {
     if (!botShopId.trim()) {
@@ -182,6 +222,45 @@ export function SuperAdminPage() {
           Tasdiqlashlar, demo va obuna boshqaruvi
         </p>
       </div>
+
+      {/* 0) Do'kon yaratish */}
+      <Card title="Do'kon yaratish">
+        <div className="space-y-3">
+          <div className="rounded-xl border border-border/40 bg-secondary/10 p-3 text-sm">
+            {myShopId && String(myShopId).length >= 3 ? (
+              <span>Sizning joriy do'koningiz: <b>{myShopId}</b>. Yangi do'kon yaratishingiz ham mumkin.</span>
+            ) : (
+              <span>Sizda hali do'kon yo'q. Ishlashni boshlash uchun do'kon yarating va o'zingizga biriktiring.</span>
+            )}
+          </div>
+
+          <Input
+            label="Do'kon nomi"
+            placeholder="Masalan: Pult Uz — Chilonzor"
+            value={newShopName}
+            onChange={(e) => setNewShopName(e.target.value)}
+          />
+
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={assignToMe}
+              onChange={(e) => setAssignToMe(e.target.checked)}
+            />
+            <span>Do'konni o'zimga biriktirish (admin bo'lib ishlayman)</span>
+          </label>
+
+          <Button disabled={creatingShop} onClick={() => void createMyShop()}>
+            {creatingShop ? "Yaratilmoqda..." : "Do'kon yaratish"}
+          </Button>
+
+          {assignToMe ? (
+            <div className="text-xs text-muted-foreground">
+              Yaratilgach sahifa avtomatik yangilanadi va Savdo/Ombor/Mijoz bo'limlari ishlaydi.
+            </div>
+          ) : null}
+        </div>
+      </Card>
 
       {/* 1) Requests */}
       <Card title="Hodim so'rovlari (PENDING)">
