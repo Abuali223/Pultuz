@@ -146,9 +146,9 @@ idempotent.**
 # 1) Service account kalit: Firebase Console -> Project settings -> Service accounts -> Generate key -> sa.json
 # 2) QURUQ ko'rish (hech narsa yozmaydi):
 cd functions
-GOOGLE_APPLICATION_CREDENTIALS=../sa.json GCLOUD_PROJECT=pultuz node scripts/migrateTimestamps.js
+GOOGLE_APPLICATION_CREDENTIALS=../sa.json GCLOUD_PROJECT=han-lazer node scripts/migrateTimestamps.js
 # 3) To'g'ri bo'lsa, haqiqiy yozish:
-GOOGLE_APPLICATION_CREDENTIALS=../sa.json GCLOUD_PROJECT=pultuz APPLY=1 node scripts/migrateTimestamps.js
+GOOGLE_APPLICATION_CREDENTIALS=../sa.json GCLOUD_PROJECT=han-lazer APPLY=1 node scripts/migrateTimestamps.js
 ```
 Migratsiya emulyator testi bilan tekshirilgan (`functions/test/migrate.test.ts`).
 
@@ -157,7 +157,7 @@ Migratsiya emulyator testi bilan tekshirilgan (`functions/test/migrate.test.ts`)
 
 ## 5.4 Backup (deploydan oldin tavsiya)
 ```bash
-gcloud firestore export gs://pultuz.appspot.com/backups/$(date +%F)
+gcloud firestore export gs://han-lazer.appspot.com/backups/$(date +%F)
 ```
 
 ## 6. Deploy

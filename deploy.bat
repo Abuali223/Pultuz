@@ -1,7 +1,7 @@
 @echo off
 chcp 65001 >nul
 setlocal
-set PROJECT=pultuz
+set PROJECT=han-lazer
 echo =====================================================
 echo  Pult Uz - DEPLOY (Windows)
 echo =====================================================

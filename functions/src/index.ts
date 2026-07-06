@@ -21,7 +21,7 @@ import {
 const DEFAULT_STORAGE_BUCKET =
   process.env.FIREBASE_STORAGE_BUCKET ||
   process.env.STORAGE_BUCKET ||
-  "pultuz.firebasestorage.app";
+  "han-lazer.firebasestorage.app";
 
 admin.initializeApp({ storageBucket: DEFAULT_STORAGE_BUCKET });
 

@@ -6,7 +6,7 @@
 # =====================================================================
 set -euo pipefail
 
-PROJECT="pultuz"   # kerak bo'lsa o'zgartiring
+PROJECT="han-lazer"   # kerak bo'lsa o'zgartiring
 HERE="$(cd "$(dirname "$0")" && pwd)"
 cd "$HERE"
 
