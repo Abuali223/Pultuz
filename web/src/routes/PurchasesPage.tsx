@@ -16,6 +16,7 @@ import { ReceiptImportModal } from "@/modules/receiptImport/ReceiptImportModal";
 import { listProducts } from "@/services/products";
 import { enqueueOfflineJob, shouldQueueByError } from "@/services/offlineQueue";
 import { getShopFeatures } from "@/services/features";
+import { invalidateProductCache } from "@/ui/GlobalSearch";
 
 type DraftItem = {
   productId: string;
@@ -317,6 +318,9 @@ async function generateIntoBarcodeField() {
       }
 
       await createPurchase(payload as any);
+
+      // Yangi tovar/qoldiq — global qidiruv keshini bekor qilamiz
+      invalidateProductCache();
 
       toast.push("Kirim saqlandi. Ombor avtomatik yangilandi.", "success");
       setDraft([]);

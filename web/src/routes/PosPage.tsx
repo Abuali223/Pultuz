@@ -12,6 +12,7 @@ import { IconPlus, IconScan, IconUser } from "@/ui/icons";
 import { useAuth } from "@/auth/AuthProvider";
 import { useCart, cartTotal } from "@/modules/pos/cartStore";
 import { openReceiptPrint } from "@/modules/pos/receipt";
+import { invalidateProductCache } from "@/ui/GlobalSearch";
 
 import { listProducts, findProductByBarcode } from "@/services/products";
 
@@ -45,6 +46,57 @@ import { formatMoney, round2 } from "@/lib/money";
 function isLikelyBarcode(raw: string) {
   const s = String(raw || "").trim().replace(/\D/g, "");
   return /^[0-9]{8}$/.test(s) || /^[0-9]{12}$/.test(s) || /^[0-9]{13}$/.test(s);
+}
+
+/**
+ * Narx inputi — local string holati bilan (maydonni tozalab qayta yozish mumkin).
+ * Bo'sh yoki noto'g'ri qiymatda savatga tegmaydi; blur/valid qiymatda commit qiladi.
+ */
+function PriceInput({
+  value,
+  highlight,
+  onCommit,
+}: {
+  value: number;
+  highlight: boolean;
+  onCommit: (n: number) => void;
+}) {
+  const [text, setText] = React.useState<string>(String(value));
+  const [editing, setEditing] = React.useState(false);
+
+  // Tashqi qiymat o'zgarsa (masalan ↺ tugmasi) va tahrirlanmayotgan bo'lsa — sinxron
+  React.useEffect(() => {
+    if (!editing) setText(String(value));
+  }, [value, editing]);
+
+  return (
+    <input
+      className={cn(
+        "h-8 w-24 rounded-[var(--radius-input)] border bg-background px-2 text-sm font-semibold outline-none",
+        highlight ? "border-warning text-warning" : "border-border/60"
+      )}
+      type="number"
+      min={0}
+      step="any"
+      value={text}
+      onFocus={() => setEditing(true)}
+      onChange={(e) => {
+        const raw = e.target.value;
+        setText(raw);
+        if (raw === "") return;
+        const n = Number(raw);
+        if (Number.isFinite(n) && n >= 0) onCommit(n);
+      }}
+      onBlur={() => {
+        setEditing(false);
+        const n = Number(text);
+        if (text === "" || !Number.isFinite(n) || n < 0) {
+          setText(String(value)); // noto'g'ri qiymat — oldingisiga qaytar
+        }
+      }}
+      title="Sotish narxi (qo'lda o'zgartirish mumkin)"
+    />
+  );
 }
 
 export function PosPage() {
@@ -195,6 +247,12 @@ React.useEffect(() => {
         return;
       }
     }
+    // Cut-sm mahsulotda avgCost bir list (sheet) uchun, narx esa 1 sm uchun.
+    // Foyda badge'i to'g'ri chiqishi uchun tan narxni 1 sm ga keltiramiz
+    // (server ham cutUnitCostPerSm = avgCost/cutWidthCm bilan hisoblaydi).
+    const perUnitCost = isCutSmProduct(p)
+      ? Number(p.avgCost ?? 0) / Math.max(1, Number(p.cutWidthCm ?? 1))
+      : Number(p.avgCost ?? 0);
     addOrInc(
       {
         productId: p.id,
@@ -202,7 +260,7 @@ React.useEffect(() => {
         barcode: p.barcode,
         unitPrice: p.price,
         listPrice: p.price,
-        unitCost: Number(p.avgCost ?? 0),
+        unitCost: round2(perUnitCost),
         unit: String(p.unit ?? "dona"),
       },
       q
@@ -319,6 +377,10 @@ React.useEffect(() => {
       }
 
       const res = await createSale(salePayload);
+
+      // Ombor o'zgardi — global qidiruv keshini yangilaymiz (qoldiq to'g'ri chiqsin)
+      invalidateProductCache();
+      refreshProducts();
 
       toast.push("Savdo yakunlandi", "success");
 
@@ -660,23 +722,10 @@ React.useEffect(() => {
                             Foyda serverda kelgan narxdan avtomatik hisoblanadi. */}
                         <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
                           <span className="text-muted-foreground">Narx:</span>
-                          <input
-                            className={cn(
-                              "h-8 w-24 rounded-[var(--radius-input)] border bg-background px-2 text-sm font-semibold outline-none",
-                              l.unitPrice !== l.listPrice ? "border-warning text-warning" : "border-border/60"
-                            )}
-                            type="number"
-                            min={0}
-                            step="any"
+                          <PriceInput
                             value={l.unitPrice}
-                            onChange={(e) => {
-                              const raw = e.target.value;
-                              if (raw === "") return;
-                              const n = Number(raw);
-                              if (!Number.isFinite(n) || n < 0) return;
-                              setPrice(l.productId, n);
-                            }}
-                            title="Sotish narxi (qo'lda o'zgartirish mumkin)"
+                            highlight={l.unitPrice !== l.listPrice}
+                            onCommit={(n) => setPrice(l.productId, n)}
                           />
                           {l.unitPrice !== l.listPrice ? (
                             <button

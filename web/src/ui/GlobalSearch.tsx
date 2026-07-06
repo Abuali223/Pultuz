@@ -15,8 +15,15 @@ import { cn } from "@/lib/cn";
  */
 
 // Mahsulotlar keshi: har safar serverdan tortmaslik uchun (tezlik).
+// Qisqa TTL + savdo/kirimdan keyin majburiy tozalash — qoldiq/yangi tovar
+// darhol qidiruvda ko'rinsin.
 let cache: { shopId: string; at: number; items: Product[] } | null = null;
-const CACHE_TTL = 60_000; // 1 daqiqa
+const CACHE_TTL = 15_000; // 15 soniya
+
+/** Ombor o'zgargach (savdo/kirim/qaytarish) qidiruv keshini bekor qiladi. */
+export function invalidateProductCache() {
+  cache = null;
+}
 
 async function getProductsCached(shopId: string): Promise<Product[]> {
   if (cache && cache.shopId === shopId && Date.now() - cache.at < CACHE_TTL) return cache.items;
