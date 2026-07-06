@@ -19,7 +19,7 @@
     "form-data": "^4.0.1"
   },
   "devDependencies": {
-    "typescript": "^5.5.4",
+    "typescript": "^5.7.3",
     "firebase-functions-test": "^3.3.0",
     "vitest": "^2.1.4"
   }
