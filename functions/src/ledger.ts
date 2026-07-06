@@ -159,6 +159,10 @@ export const createSaleTx = functions.runWith(RUNWITH).https.onCall(async (data,
       if (isCutSm(p)) {
         if (cutTotalSm(p) < qty) throw new functions.https.HttpsError("failed-precondition", `Omborda yetarli emas: ${p.name}`);
         const unitCost = cutUnitCostPerSm(p);
+        // TAN NARXDAN PAST SOTIB BO'LMAYDI (zarariga savdoning oldini oladi).
+        if (unitCost > 0 && unitPrice < unitCost - 0.001) {
+          throw new functions.https.HttpsError("failed-precondition", `${p.name}: narx tan narxdan (${unitCost}) past bo'la olmaydi`);
+        }
         const lineTotal = round2(unitPrice * qty);
         const lineProfit = round2((unitPrice - unitCost) * qty);
         saleItems.push({ productId: it.productId, nameSnapshot: String(p.name ?? ""), barcodeSnapshot: String(p.barcode ?? ""), qty, unitSnapshot: String(p.unit ?? "sm"), unitPrice, listPriceSnapshot: listPrice, priceOverridden, unitCostSnapshot: unitCost, lineTotal, profit: lineProfit });
@@ -170,6 +174,10 @@ export const createSaleTx = functions.runWith(RUNWITH).https.onCall(async (data,
         const stock = Number(p.stock ?? 0);
         if (stock < qty) throw new functions.https.HttpsError("failed-precondition", `Omborda yetarli emas: ${p.name}`);
         const unitCost = Number(p.avgCost ?? 0);
+        // TAN NARXDAN PAST SOTIB BO'LMAYDI (zarariga savdoning oldini oladi).
+        if (unitCost > 0 && unitPrice < unitCost - 0.001) {
+          throw new functions.https.HttpsError("failed-precondition", `${p.name}: narx tan narxdan (${unitCost}) past bo'la olmaydi`);
+        }
         const lineTotal = round2(unitPrice * qty);
         const lineProfit = round2((unitPrice - unitCost) * qty);
         saleItems.push({ productId: it.productId, nameSnapshot: String(p.name ?? ""), barcodeSnapshot: String(p.barcode ?? ""), qty, unitSnapshot: String(p.unit ?? "dona"), unitPrice, listPriceSnapshot: listPrice, priceOverridden, unitCostSnapshot: unitCost, lineTotal, profit: lineProfit });
@@ -242,8 +250,19 @@ export const createPurchaseTx = functions.runWith(RUNWITH).https.onCall(async (d
   const createdAt = Date.now();
   const safePaid = round2(Math.max(0, Number(data?.paidAmount || 0)));
   const payType = safePaid > 0 ? (data?.paymentType === "card" ? "card" : "cash") : null;
+  // Idempotentlik: offline navbat qayta yuborsa ham kirim ikki marta yozilmaydi.
+  const opId = String(data?.operationId || "").trim();
 
   const purchaseId = await db.runTransaction(async (tx) => {
+    // Idempotentlik tekshiruvi — barcha yozuvlardan oldin (transaction read-before-write).
+    const purchaseRef = opId
+      ? db.doc(`shops/${shopId}/purchases/${opId}`)
+      : db.collection(`shops/${shopId}/purchases`).doc();
+    if (opId) {
+      const already = await tx.get(purchaseRef);
+      if (already.exists) return purchaseRef.id; // allaqachon yozilgan
+    }
+
     type Row = { ref: any; productId: string; qty: number; unitCost: number; p?: any; newProduct?: any; beforeStock?: number; beforeAvgCost?: number; afterStock?: number; afterAvgCost?: number };
     const rows: Row[] = [];
     let total = 0;
@@ -331,7 +350,6 @@ export const createPurchaseTx = functions.runWith(RUNWITH).https.onCall(async (d
       tx.set(db.collection(`shops/${shopId}/stock_movements`).doc(), { shopId, type: "IN", productId: r.productId, qty: r.qty, unitCost: r.unitCost, refType: "PURCHASE", refNo: purchaseNo, createdAt, createdBy: caller.uid });
     }
 
-    const purchaseRef = db.collection(`shops/${shopId}/purchases`).doc();
     tx.set(purchaseRef, {
       shopId, purchaseNo,
       supplierId: supplier ? supplier.id : null, supplierNameSnapshot: supplier ? supplier.name : null,
@@ -637,9 +655,17 @@ export const expenseTx = functions.runWith(RUNWITH).https.onCall(async (data, co
   const paymentType = data?.paymentType === "card" ? "card" : "cash";
   if (!amount || amount <= 0) throw new functions.https.HttpsError("invalid-argument", "Harajat summasi 0 bo'la olmaydi");
   const createdAt = Date.now();
+  // Idempotentlik: offline navbat qayta yuborsa ham harajat ikki marta yozilmaydi.
+  const opId = String(data?.operationId || "").trim();
 
   const expenseId = await db.runTransaction(async (tx) => {
-    const expRef = db.collection(`shops/${shopId}/expenses`).doc();
+    const expRef = opId
+      ? db.doc(`shops/${shopId}/expenses/${opId}`)
+      : db.collection(`shops/${shopId}/expenses`).doc();
+    if (opId) {
+      const existing = await tx.get(expRef);
+      if (existing.exists) return expRef.id; // allaqachon yozilgan
+    }
     tx.set(expRef, { shopId, category: String(data?.category || "Boshqa"), amount, paymentType, note: String(data?.note || ""), createdAt, createdBy: caller.uid });
     tx.set(db.collection(`shops/${shopId}/cash_transactions`).doc(), { shopId, type: "EXPENSE", amount: -amount, paymentType, refId: expRef.id, createdAt, createdBy: caller.uid });
     return expRef.id;

@@ -6,6 +6,7 @@ import { Modal } from "@/ui/Modal";
 import { useToast } from "@/ui/Toast";
 import { useAuth } from "@/auth/AuthProvider";
 import { createExpense, listExpenses } from "@/services/expenses";
+import { enqueueOfflineJob, shouldQueueByError } from "@/services/offlineQueue";
 import type { Expense, PaymentType } from "@/types";
 import { formatMoneyInput, parseMoneyInput, formatMoney } from "@/lib/money";
 import VoiceExpenseConfirmModal from "@/modules/voiceExpense/VoiceExpenseConfirmModal";
@@ -62,23 +63,45 @@ export function ExpensesPage() {
       toast.push("Kategoriya va summa kerak", "error");
       return;
     }
-    try {
-      await createExpense({
-        id: "tmp",
-        shopId,
-        category: category.trim(),
-        amount,
-        paymentType,
-        note: note.trim() || undefined,
-        createdAt: Date.now(),
-        createdBy: user.uid,
-      } as any);
-      toast.push("Harajat qo'shildi", "success");
+    const payload = {
+      id: "tmp",
+      shopId,
+      category: category.trim(),
+      amount,
+      paymentType,
+      note: note.trim() || undefined,
+      createdAt: Date.now(),
+      createdBy: user.uid,
+      // Barqaror ID — offline qayta yuborishda dublikat harajatning oldini oladi
+      operationId: `exp_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
+    };
+
+    const resetForm = () => {
       setOpen(false);
       setAmountText("0");
       setNote("");
+    };
+
+    // Internet yo'q — offline navbatga qo'shamiz (internet kelganda avtomatik yuklanadi)
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      enqueueOfflineJob({ type: "expense.create", payload, shopId, userId: user.uid });
+      toast.push("Internet yo'q — harajat offline navbatga qo'shildi", "warning");
+      resetForm();
+      return;
+    }
+
+    try {
+      await createExpense(payload as any);
+      toast.push("Harajat qo'shildi", "success");
+      resetForm();
       refresh();
     } catch (e: any) {
+      if (shouldQueueByError(e)) {
+        enqueueOfflineJob({ type: "expense.create", payload, shopId, userId: user.uid });
+        toast.push("Aloqa uzildi — harajat navbatga qo'shildi", "warning");
+        resetForm();
+        return;
+      }
       toast.push(e?.message ?? "Xato", "error");
     }
   }

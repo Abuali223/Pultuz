@@ -10,7 +10,7 @@ export async function listExpenses(shopId: string): Promise<Expense[]> {
 }
 
 // SERVER-AUTHORITATIVE: harajat Cloud Function orqali yoziladi.
-export async function createExpense(params: Omit<Expense, "id">): Promise<string> {
+export async function createExpense(params: Omit<Expense, "id"> & { operationId?: string }): Promise<string> {
   const call = httpsCallable(functions, "expenseTx");
   const res = await call({
     shopId: params.shopId,
@@ -18,6 +18,7 @@ export async function createExpense(params: Omit<Expense, "id">): Promise<string
     amount: params.amount,
     paymentType: params.paymentType,
     note: (params as any).note ?? "",
+    operationId: (params as any).operationId,
   });
   return res.data as string;
 }

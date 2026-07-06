@@ -343,6 +343,18 @@ React.useEffect(() => {
 
   async function finalize(paymentType: "cash" | "card", opts?: { asDebt?: boolean }) {
     if (!user) return;
+
+    // TAN NARXDAN PAST SOTIB BO'LMAYDI — offline holatda ham client bloklaydi
+    // (server ham tekshiradi, bu shunchaki tez va tushunarli xabar uchun).
+    const belowCost = lines.find((l) => l.unitCost > 0 && l.unitPrice < l.unitCost - 0.001);
+    if (belowCost) {
+      toast.push(
+        `${belowCost.name}: narx tan narxdan (${formatMoney(belowCost.unitCost)}) past bo'la olmaydi`,
+        "error"
+      );
+      return;
+    }
+
     if (!confirm("Savdo yakunlansinmi?")) return;
 
     // FIX: "Qarz" tugmasi bosilganda, summa kamaytirilmagan bo'lsa, to'langan=0 (to'liq qarz).
@@ -736,20 +748,25 @@ React.useEffect(() => {
                               <s>{formatMoney(l.listPrice)}</s> ↺
                             </button>
                           ) : null}
-                          <span
-                            className={cn(
-                              "rounded-full px-2 py-0.5 text-[10px] font-bold",
-                              l.unitPrice - l.unitCost > 0
-                                ? "bg-success/10 text-success"
-                                : l.unitPrice - l.unitCost < 0
-                                ? "bg-destructive/10 text-destructive"
-                                : "bg-muted text-muted-foreground"
-                            )}
-                            title={`Kelgan narx: ${formatMoney(l.unitCost)}. Foyda avtomatik hisoblanadi.`}
-                          >
-                            {l.unitPrice - l.unitCost >= 0 ? "+" : ""}
-                            {formatMoney(round2((l.unitPrice - l.unitCost) * l.qty))}
-                          </span>
+                          {l.unitCost > 0 && l.unitPrice < l.unitCost - 0.001 ? (
+                            <span
+                              className="rounded-full bg-destructive/10 px-2 py-0.5 text-[10px] font-bold text-destructive"
+                              title={`Tan narx: ${formatMoney(l.unitCost)}. Undan past sotib bo'lmaydi.`}
+                            >
+                              ⚠ Tan narxdan past!
+                            </span>
+                          ) : (
+                            <span
+                              className={cn(
+                                "rounded-full px-2 py-0.5 text-[10px] font-bold",
+                                l.unitPrice - l.unitCost > 0 ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"
+                              )}
+                              title={`Kelgan narx: ${formatMoney(l.unitCost)}. Foyda avtomatik hisoblanadi.`}
+                            >
+                              {l.unitPrice - l.unitCost >= 0 ? "+" : ""}
+                              {formatMoney(round2((l.unitPrice - l.unitCost) * l.qty))}
+                            </span>
+                          )}
                         </div>
                       </div>
 

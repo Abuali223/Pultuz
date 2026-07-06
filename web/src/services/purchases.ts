@@ -44,10 +44,14 @@ export async function createPurchase(params: {
       minStock?: number;
       cutLengthCm?: number;
       cutWidthCm?: number;
+      model?: string;
+      brand?: string;
+      note?: string;
     };
   }[];
   paidAmount: number;
   paymentType: PaymentType | null;
+  operationId?: string; // idempotentlik (offline replay)
 }): Promise<string> {
   const call = httpsCallable(functions, "createPurchaseTx");
   const res = await call({
@@ -58,6 +62,7 @@ export async function createPurchase(params: {
     items: params.items,
     paidAmount: params.paidAmount,
     paymentType: params.paymentType,
+    operationId: params.operationId,
   });
   return res.data as string;
 }

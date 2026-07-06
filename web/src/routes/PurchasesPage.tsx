@@ -302,6 +302,8 @@ async function generateIntoBarcodeField() {
       })),
       paidAmount: Number(paidAmount || 0),
       paymentType: Number(paidAmount || 0) > 0 ? paymentType : null,
+      // Barqaror ID — offline qayta yuborishda dublikat kirimning oldini oladi
+      operationId: `pur_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
     };
 
     try {
