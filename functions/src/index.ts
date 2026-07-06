@@ -1296,6 +1296,13 @@ export const receiptImportExtract = functions
       const path = String(p || "").trim();
       if (!path) continue;
 
+      // XAVFSIZLIK: faqat shu do'kon papkasidagi rasmlar o'qilishi mumkin.
+      // Admin SDK Storage rules'ni chetlab o'tadi, shuning uchun bu yerda
+      // tekshiramiz — aks holda A do'kon admini B do'kon rasmini o'qishi mumkin.
+      if (!path.startsWith(`shops/${shopId}/`)) {
+        throw new functions.https.HttpsError("permission-denied", "Rasm yo'li ushbu do'konga tegishli emas");
+      }
+
       // Download file bytes and pass as base64 data URL to OpenAI.
       // This avoids SignedURL/signBlob permission issues in Cloud Functions.
       const file = bucket.file(path);
@@ -1788,6 +1795,18 @@ export const monthlyPdfReports = functions
 export const sttUzbekVoice = functions.runWith({ secrets: ["UZBEKVOICE_API_KEY", "UZBEKVOICE_STT_API_KEY"] }).https.onCall(async (data, context) => {
   if (!context.auth?.uid) {
     throw new functions.https.HttpsError("unauthenticated", "Login required");
+  }
+  // XAVFSIZLIK: pullik STT API — faqat do'konga biriktirilgan, faol rolli
+  // foydalanuvchilar chaqira oladi (pending/rolsiz user cost-abuse qila olmasin).
+  const uid = context.auth.uid;
+  if (uid !== SUPER_ADMIN_UID) {
+    const uSnap = await db.collection("users").doc(uid).get();
+    const uRole = uSnap.exists ? String(uSnap.get("role") || "") : "";
+    const uShop = uSnap.exists ? String(uSnap.get("shopId") || "") : "";
+    const ALLOWED = ["admin", "cashier", "warehouse"];
+    if (!uShop || !ALLOWED.includes(uRole)) {
+      throw new functions.https.HttpsError("permission-denied", "Ruxsat yo'q");
+    }
   }
   const base64Audio = String(data?.base64Audio || "");
   const mimeType = String(data?.mimeType || "audio/webm");

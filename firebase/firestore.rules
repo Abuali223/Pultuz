@@ -231,7 +231,7 @@ function dangerousAllowed() {
         // (nom, narx, kategoriya, ...) tahrirlay oladi.
         allow update: if inMyShop(shopId) && isAdmin()
           && !request.resource.data.diff(resource.data).affectedKeys()
-              .hasAny(["stock", "qty", "avgCost", "cutRemainderCm"]);
+              .hasAny(["stock", "qty", "avgCost", "cutRemainderCm", "cutWidthCm", "cutLengthCm"]);
       }
 
       // =========================
@@ -386,9 +386,15 @@ match /stock_movements/{moveId} {
       // client tomonidan yoziladi. Yaratish/yangilash: admin, sotuvchi, omborchi.
       match /orders/{orderId} {
         allow read: if inMyShop(shopId) && isViewer();
+        // Yaratish: hodim (viewer emas). createdBy va shopId soxta bo'la olmaydi.
         allow create: if inMyShop(shopId) && isStaff()
-          && request.resource.data.createdBy == request.auth.uid;
-        allow update: if inMyShop(shopId) && isStaff();
+          && request.resource.data.createdBy == request.auth.uid
+          && request.resource.data.shopId == shopId;
+        // Yangilash: hodim, lekin muallif (createdBy) va shopId o'zgarmaydi —
+        // "kim yaratdi" izini soxtalashtirib bo'lmaydi.
+        allow update: if inMyShop(shopId) && isStaff()
+          && request.resource.data.createdBy == resource.data.createdBy
+          && request.resource.data.shopId == resource.data.shopId;
         allow delete: if inMyShop(shopId) && isAdmin();
       }
 

@@ -148,6 +148,10 @@ export const createSaleTx = functions.runWith(RUNWITH).https.onCall(async (data,
       if (it.unitPrice !== undefined && it.unitPrice !== null) {
         const ov = Number(it.unitPrice);
         if (!Number.isFinite(ov) || ov < 0) throw new functions.https.HttpsError("invalid-argument", `Noto'g'ri narx: ${p.name}`);
+        // Yuqori chegara: absurd/overflow narxlar kassa va qarzni buzmasligi uchun.
+        // 1e11 so'm (100 mlrd) real narxlardan ancha yuqori, ammo Infinity emas.
+        const PRICE_CEILING = 100_000_000_000;
+        if (ov > PRICE_CEILING) throw new functions.https.HttpsError("invalid-argument", `Narx juda katta: ${p.name}`);
         unitPrice = round2(ov);
         priceOverridden = Math.abs(unitPrice - listPrice) > 0.001;
       }
