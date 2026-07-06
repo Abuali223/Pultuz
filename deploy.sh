@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # =====================================================================
-# Ali Biznes — DEPLOY skripti (server-authoritative versiya)
+# Pult Uz — DEPLOY skripti (server-authoritative versiya)
 # Ishga tushirish:  bash deploy.sh
 # Talab: Node 18+, Firebase CLI (npm i -g firebase-tools), loyihaga kirish.
 # =====================================================================
 set -euo pipefail
 
-PROJECT="han-biznes-boshqaruv-1a41f"   # kerak bo'lsa o'zgartiring
+PROJECT="pultuz"   # kerak bo'lsa o'zgartiring
 HERE="$(cd "$(dirname "$0")" && pwd)"
 cd "$HERE"
 

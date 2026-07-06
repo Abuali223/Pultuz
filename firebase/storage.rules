@@ -3,7 +3,14 @@ service firebase.storage {
   match /b/{bucket}/o {
 
     function signedIn() { return request.auth != null; }
-    function isSuperAdmin() { return signedIn() && request.auth.uid == "M8WKl0BlBnPanTU6Hh60SumTpQu1"; }
+    // Super admin: eski UID YOKI tasdiqlangan email (email_verified).
+    function isSuperAdmin() {
+      return signedIn() && (
+        request.auth.uid == "M8WKl0BlBnPanTU6Hh60SumTpQu1"
+        || (request.auth.token.email == "hasanboyqobulov7@gmail.com"
+            && request.auth.token.email_verified == true)
+      );
+    }
 
     function userDoc() {
       return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data;

@@ -10,9 +10,15 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // ✅ SUPER ADMIN UID (sizniki)
+    // ✅ SUPER ADMIN — eski UID (moslik) YOKI tasdiqlangan email.
+    // Email bo'yicha: foydalanuvchi shu email bilan kirsa darhol super admin.
+    // email_verified talab qilinadi (birov o'zganing emailini soxta olmasin).
     function isSuperAdmin() {
-      return signedIn() && request.auth.uid == "M8WKl0BlBnPanTU6Hh60SumTpQu1";
+      return signedIn() && (
+        request.auth.uid == "M8WKl0BlBnPanTU6Hh60SumTpQu1"
+        || (request.auth.token.email == "hasanboyqobulov7@gmail.com"
+            && request.auth.token.email_verified == true)
+      );
     }
 
     function userDocPath() {

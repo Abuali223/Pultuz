@@ -21,8 +21,7 @@ import { StaffPage } from "@/routes/StaffPage";
 import { StaffJoinPage } from "@/routes/StaffJoinPage";
 import { AdminDashboardPage } from "@/routes/AdminDashboardPage";
 import { OrdersPage } from "@/routes/OrdersPage";
-
-const SUPER_ADMIN_UID = "M8WKl0BlBnPanTU6Hh60SumTpQu1";
+import { isSuperAdminUser } from "@/auth/superAdmin";
 
 function Protected({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -31,8 +30,9 @@ function Protected({ children }: { children: React.ReactNode }) {
   if (loading) return <div className="p-6 text-sm">Yuklanmoqda...</div>;
   if (!user) return <Navigate to="/login" replace />;
 
-  // SuperAdmin email verified bo'lmasa ham kirishi mumkin (master account)
-  if (user.uid !== SUPER_ADMIN_UID) {
+  // Legacy master UID email verifyni o'tkazib yuboradi; email-super admin esa
+  // email_verified bo'lgach super bo'ladi (shuning uchun bu yerda verify talab qilinadi).
+  if (!isSuperAdminUser(user)) {
     // /verify-email sahifasiga kirishga ruxsat beramiz
     if (!user.emailVerified && loc.pathname !== "/verify-email") {
       return <Navigate to="/verify-email" replace />;
@@ -45,7 +45,7 @@ function Protected({ children }: { children: React.ReactNode }) {
 export function RequireActiveShop({ children }: { children: React.ReactNode }) {
   const { user, role, shopId } = useAuth();
   // SuperAdmin hamma joyga kira oladi
-  if (user?.uid === SUPER_ADMIN_UID) return <>{children}</>;
+  if (isSuperAdminUser(user)) return <>{children}</>;
   // Pending/role yo‘q bo‘lsa — faqat Profil/So‘rov ekranlariga yo‘naltiramiz
   if (!role || role === "pending" || !shopId || String(shopId).length < 3) {
     return <Navigate to="/profile" replace />;
@@ -57,7 +57,7 @@ function HomeRedirect() {
   const { user, role, shopId, loading } = useAuth();
   if (loading) return null;
   if (!user) return <Navigate to="/login" replace />;
-  if (user.uid === SUPER_ADMIN_UID) return <Navigate to="/superadmin" replace />;
+  if (isSuperAdminUser(user)) return <Navigate to="/superadmin" replace />;
   if (!role || role === "pending" || !shopId || String(shopId).length < 3) return <Navigate to="/profile" replace />;
   // Rolga qarab bosh sahifa: omborchi — Kirim, faqat ko'ruvchi — Ombor, qolganlar — Savdo
   if (role === "warehouse") return <Navigate to="/purchases" replace />;

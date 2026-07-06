@@ -7,8 +7,7 @@ import { IconBell, IconCart, IconDashboard, IconFileText, IconLogOut, IconPieCha
 import { Toaster } from "sonner";
 import { AppLockGate } from "@/layout/AppLockGate";
 import { GlobalSearch } from "@/ui/GlobalSearch";
-
-const SUPER_ADMIN_UID = "M8WKl0BlBnPanTU6Hh60SumTpQu1";
+import { isSuperAdminUser } from "@/auth/superAdmin";
 
 type NavItem = {
   label: string;
@@ -63,7 +62,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   //  - sotuvchi (cashier) — kassa, ombor, mijoz, buyurtma, tarix
   //  - omborchi (warehouse) — ombor, kirim, ta'minotchi, buyurtma
   //  - faqat ko'ruvchi (viewer/accountant) — ombor, mijoz, buyurtma, hisobot, tarix (faqat o'qish)
-  const isPrivileged = role === "admin" || user?.uid === SUPER_ADMIN_UID;
+  const isPrivileged = role === "admin" || isSuperAdminUser(user);
   const NAV_BY_ROLE: Record<string, string[]> = {
     cashier: ["/pos", "/inventory", "/customers", "/orders", "/cash-history", "/profile"],
     warehouse: ["/inventory", "/purchases", "/suppliers", "/orders", "/profile"],

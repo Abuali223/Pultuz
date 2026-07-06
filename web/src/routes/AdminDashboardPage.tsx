@@ -9,10 +9,9 @@ import { listCustomers } from "@/services/customers";
 import { buildReport, type ReportSummary } from "@/services/reports";
 import type { Product, Customer } from "@/types";
 import { formatMoney } from "@/lib/money";
+import { isSuperAdminUser } from "@/auth/superAdmin";
 
 type PeriodKey = "day" | "week" | "month" | "all";
-
-const SUPER_ADMIN_UID = "M8WKl0BlBnPanTU6Hh60SumTpQu1";
 
 type DashboardData = {
   products: Product[];
@@ -50,7 +49,7 @@ export function AdminDashboardPage() {
   const [busy, setBusy] = React.useState(false);
   const [data, setData] = React.useState<DashboardData | null>(null);
 
-  const canOpen = role === "admin" || role === "accountant" || user?.uid === SUPER_ADMIN_UID;
+  const canOpen = role === "admin" || role === "accountant" || isSuperAdminUser(user);
 
   const load = React.useCallback(async () => {
     if (!shopId || shopId === "default") return;

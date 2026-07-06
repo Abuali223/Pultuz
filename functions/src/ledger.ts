@@ -12,6 +12,7 @@ import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 
 const SUPER_ADMIN_UID = "M8WKl0BlBnPanTU6Hh60SumTpQu1";
+const SUPER_ADMIN_EMAIL = "hasanboyqobulov7@gmail.com";
 
 function round2(n: number): number {
   return Math.round((Number(n) + Number.EPSILON) * 100) / 100;
@@ -22,7 +23,13 @@ type Caller = { uid: string; role: string; shopId: string; isSuper: boolean };
 async function getCaller(context: functions.https.CallableContext): Promise<Caller> {
   if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Auth required");
   const uid = context.auth.uid;
-  if (uid === SUPER_ADMIN_UID) return { uid, role: "admin", shopId: "", isSuper: true };
+  // Super admin: eski UID YOKI tasdiqlangan email (email_verified).
+  const token: any = context.auth.token || {};
+  const email = String(token.email || "").toLowerCase();
+  const emailVerified = token.email_verified === true;
+  if (uid === SUPER_ADMIN_UID || (email === SUPER_ADMIN_EMAIL && emailVerified)) {
+    return { uid, role: "admin", shopId: "", isSuper: true };
+  }
   const snap = await admin.firestore().doc(`users/${uid}`).get();
   const d = (snap.exists ? snap.data() : {}) as any;
   return { uid, role: String(d?.role || ""), shopId: String(d?.shopId || ""), isSuper: false };

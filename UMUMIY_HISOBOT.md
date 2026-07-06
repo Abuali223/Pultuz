@@ -1,7 +1,7 @@
 # Ali Biznes — Tuzatish ishlari bo'yicha UMUMIY HISOBOT
 
 Loyiha: **Ali Biznes boshqaruv** (React + TypeScript + Vite + Firebase) — POS + Ombor + Mijoz/Ta'minotchi + Kassa + Hisobot + Telegram.
-Sayt: `alilazer.uz` · Firebase loyiha: `han-biznes-boshqaruv-1a41f`
+Sayt: `alilazer.uz` · Firebase loyiha: `pultuz`
 
 ---
 

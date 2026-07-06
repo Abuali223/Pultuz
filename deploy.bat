@@ -1,9 +1,9 @@
 @echo off
 chcp 65001 >nul
 setlocal
-set PROJECT=han-biznes-boshqaruv-1a41f
+set PROJECT=pultuz
 echo =====================================================
-echo  Ali Biznes - DEPLOY (Windows)
+echo  Pult Uz - DEPLOY (Windows)
 echo =====================================================
 echo.
 

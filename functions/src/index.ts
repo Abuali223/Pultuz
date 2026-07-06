@@ -21,7 +21,7 @@ import {
 const DEFAULT_STORAGE_BUCKET =
   process.env.FIREBASE_STORAGE_BUCKET ||
   process.env.STORAGE_BUCKET ||
-  "han-biznes-boshqaruv-1a41f.firebasestorage.app";
+  "pultuz.firebasestorage.app";
 
 admin.initializeApp({ storageBucket: DEFAULT_STORAGE_BUCKET });
 
@@ -242,9 +242,30 @@ async function buildPrettyPdf(params: {
 const nowTs = () => admin.firestore.FieldValue.serverTimestamp();
 
 const db = admin.firestore();
+// Super admin: eski loyihadagi UID (moslik uchun) YOKI tasdiqlangan email.
+// Email bo'yicha aniqlash — foydalanuvchi shu email bilan login qilishi bilan
+// darhol super admin bo'ladi (UID qidirish shart emas). email_verified talab
+// qilinadi — aks holda birov o'zganing emailini soxta ro'yxatdan o'tkaza olmaydi.
 const SUPER_ADMIN_UID = "M8WKl0BlBnPanTU6Hh60SumTpQu1";
+const SUPER_ADMIN_EMAIL = "hasanboyqobulov7@gmail.com";
+
+/** context.auth asosida super admin ekanini aniqlaydi (UID yoki tasdiqlangan email). */
+function isSuperAdminCtx(context: functions.https.CallableContext): boolean {
+  const uid = context.auth?.uid || "";
+  const token: any = context.auth?.token || {};
+  const email = String(token.email || "").toLowerCase();
+  const verified = token.email_verified === true;
+  return uid === SUPER_ADMIN_UID || (email === SUPER_ADMIN_EMAIL && verified);
+}
+
 function requireSuperAdmin(uid: string) {
   if (uid !== SUPER_ADMIN_UID) {
+    throw new functions.https.HttpsError("permission-denied", "SuperAdmin only");
+  }
+}
+/** context bilan super admin talab qiladi (email yoki UID). */
+function requireSuperAdminCtx(context: functions.https.CallableContext) {
+  if (!isSuperAdminCtx(context)) {
     throw new functions.https.HttpsError("permission-denied", "SuperAdmin only");
   }
 }
@@ -329,7 +350,7 @@ export const verifyAdminPin = functions.https.onCall(async (data, context) => {
 export const createShop = functions.https.onCall(async (data, context) => {
   if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Auth required");
   const callerUid = context.auth.uid;
-  requireSuperAdmin(callerUid);
+  requireSuperAdminCtx(context);
 
   const name = String(data?.name || "").trim();
   const ownerUid = String(data?.ownerUid || "").trim();
@@ -368,7 +389,7 @@ export const createShop = functions.https.onCall(async (data, context) => {
 export const approveOwnerRequest = functions.https.onCall(async (data, context) => {
   if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Auth required");
   const callerUid = context.auth.uid;
-  requireSuperAdmin(callerUid);
+  requireSuperAdminCtx(context);
 
   const requestId = String(data?.requestId || "").trim();
   const providedShopId = String(data?.shopId || "").trim();
@@ -432,7 +453,7 @@ export const approveOwnerRequest = functions.https.onCall(async (data, context) 
 export const setSubscription = functions.https.onCall(async (data, context) => {
   if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Auth required");
   const callerUid = context.auth.uid;
-  requireSuperAdmin(callerUid);
+  requireSuperAdminCtx(context);
 
   const shopId = String(data?.shopId || "").trim();
   const type = String(data?.type || "").trim(); // monthly | lifetime
@@ -481,7 +502,7 @@ export const approveStaff = functions.https.onCall(async (data, context) => {
   if (!STAFF_ROLES.includes(requestedRole)) {
     throw new functions.https.HttpsError("invalid-argument", "Noto'g'ri rol");
   }
-  const isSuperAdmin = callerUid === SUPER_ADMIN_UID;
+  const isSuperAdmin = isSuperAdminCtx(context);
 
   const callerSnap = await db.collection("users").doc(callerUid).get();
   const callerRole = callerSnap.exists ? String(callerSnap.get("role") || "") : "";
@@ -565,7 +586,7 @@ export const setStaffRole = functions.https.onCall(async (data, context) => {
   if (!STAFF_ROLES.includes(newRole)) throw new functions.https.HttpsError("invalid-argument", "Noto'g'ri rol");
   if (staffUid === callerUid) throw new functions.https.HttpsError("failed-precondition", "O'z rolingizni o'zgartira olmaysiz");
 
-  const isSuperAdmin = callerUid === SUPER_ADMIN_UID;
+  const isSuperAdmin = isSuperAdminCtx(context);
   const callerSnap = await db.collection("users").doc(callerUid).get();
   const callerRole = callerSnap.exists ? String(callerSnap.get("role") || "") : "";
   const callerShopId = callerSnap.exists ? String(callerSnap.get("shopId") || "") : "";
@@ -637,7 +658,7 @@ export const connectShopBot = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError("unauthenticated", "Auth required");
   }
   const callerUid = context.auth.uid;
-  requireSuperAdmin(callerUid);
+  requireSuperAdminCtx(context);
 
   const shopId = String(data?.shopId || "").trim();
   const botToken = String(data?.botToken || data?.token || "").trim();
@@ -751,7 +772,7 @@ export const sendCustomerSalesPdf = functions.https.onCall(async (data, context)
   if (!shopId) throw new functions.https.HttpsError("invalid-argument", "shopId required");
   if (!customerId) throw new functions.https.HttpsError("invalid-argument", "customerId required");
 
-  await requireShopAdmin(callerUid, shopId);
+  await requireShopAdmin(callerUid, shopId, isSuperAdminCtx(context));
 
   const token = await getShopTelegramToken(db, shopId);
   if (!token) throw new functions.https.HttpsError("failed-precondition", "Telegram token not configured");
@@ -1186,11 +1207,11 @@ export const onSaleCompletedNotify = functions
 // =========================
 // RECEIPT IMPORT (Admin only)
 // =========================
-async function requireShopAdmin(uid: string, shopId: string) {
+async function requireShopAdmin(uid: string, shopId: string, isSuper = false) {
   if (!uid) throw new functions.https.HttpsError("unauthenticated", "Auth required");
   if (!shopId) throw new functions.https.HttpsError("invalid-argument", "shopId required");
 
-  if (uid === SUPER_ADMIN_UID) return;
+  if (isSuper || uid === SUPER_ADMIN_UID) return;
 
   const uSnap = await db.collection("users").doc(uid).get();
   const u = uSnap.exists ? (uSnap.data() as any) : null;
@@ -1288,7 +1309,7 @@ export const receiptImportExtract = functions
     if (!shopId) throw new functions.https.HttpsError("invalid-argument", "shopId required");
     if (!imagePaths.length) throw new functions.https.HttpsError("invalid-argument", "imagePaths required");
 
-    await requireShopAdmin(uid, shopId);
+    await requireShopAdmin(uid, shopId, isSuperAdminCtx(context));
 
     const bucket = admin.storage().bucket();
     const urls: string[] = [];
@@ -1799,7 +1820,7 @@ export const sttUzbekVoice = functions.runWith({ secrets: ["UZBEKVOICE_API_KEY",
   // XAVFSIZLIK: pullik STT API — faqat do'konga biriktirilgan, faol rolli
   // foydalanuvchilar chaqira oladi (pending/rolsiz user cost-abuse qila olmasin).
   const uid = context.auth.uid;
-  if (uid !== SUPER_ADMIN_UID) {
+  if (!isSuperAdminCtx(context)) {
     const uSnap = await db.collection("users").doc(uid).get();
     const uRole = uSnap.exists ? String(uSnap.get("role") || "") : "";
     const uShop = uSnap.exists ? String(uSnap.get("shopId") || "") : "";

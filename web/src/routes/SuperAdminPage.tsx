@@ -15,14 +15,13 @@ import {
 import { approveStaffRequest, watchPendingStaffRequests, StaffRequest } from "@/services/staff";
 import { db } from "@/lib/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
-
-const SUPER_ADMIN_UID = "M8WKl0BlBnPanTU6Hh60SumTpQu1";
+import { isSuperAdminUser } from "@/auth/superAdmin";
 
 type Plan = "monthly" | "lifetime";
 
 export function SuperAdminPage() {
   const { user } = useAuth();
-  const isSuper = user?.uid === SUPER_ADMIN_UID;
+  const isSuper = isSuperAdminUser(user);
 
   const [staffReqs, setStaffReqs] = React.useState<StaffRequest[]>([]);
   const [ownerReqs, setOwnerReqs] = React.useState<OwnerRequest[]>([]);
