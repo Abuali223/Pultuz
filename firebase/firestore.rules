@@ -256,11 +256,13 @@ function dangerousAllowed() {
       // =========================
       match /suppliers/{supplierId} {
         allow read: if inMyShop(shopId) && isViewer();
-        allow create: if inMyShop(shopId) && isAdmin()
+        // Omborchi ham ta'minotchi yarata oladi (kirim jarayoni uchun);
+        // balans maydonlari baribir faqat server orqali o'zgaradi.
+        allow create: if inMyShop(shopId) && isWarehouse()
           && (!("balance" in request.resource.data) || request.resource.data.balance == 0)
           && (!("totalPurchased" in request.resource.data) || request.resource.data.totalPurchased == 0)
           && (!("totalPaid" in request.resource.data) || request.resource.data.totalPaid == 0);
-        allow update: if inMyShop(shopId) && isAdmin()
+        allow update: if inMyShop(shopId) && isWarehouse()
           && !request.resource.data.diff(resource.data).affectedKeys()
               .hasAny(["balance", "totalPurchased", "totalPaid"]);
         allow delete: if inMyShop(shopId) && isAdmin();

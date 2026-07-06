@@ -343,13 +343,13 @@ async function generateIntoBarcodeField() {
   }
 
 
-  // Access control: Kirim faqat admin
-  if (role !== "admin") {
+  // Access control: Kirim — admin va omborchi (warehouse)
+  if (role !== "admin" && role !== "warehouse") {
     return (
       <div className="space-y-4">
         <Card title="Kirim (tovar kelishi)">
           <div className="text-sm text-foreground">
-            Bu bo'lim faqat <b>admin</b> uchun. Kirim orqali yangi tovarlar yaratiladi va omborga avtomatik qo'shiladi.
+            Bu bo'lim faqat <b>admin</b> va <b>omborchi</b> uchun. Kirim orqali yangi tovarlar yaratiladi va omborga avtomatik qo'shiladi.
           </div>
         </Card>
       </div>
