@@ -62,6 +62,15 @@ export function OrdersPage() {
   const [products, setProducts] = React.useState<Product[]>([]);
   const [barcodeInput, setBarcodeInput] = React.useState("");
   const [scanOpen, setScanOpen] = React.useState(false);
+  const barcodeRef = React.useRef<HTMLInputElement>(null);
+
+  // Oyna ochilganda barcode maydoniga fokus — USB/BT skaner darhol ishlashi uchun
+  React.useEffect(() => {
+    if (createOpen) {
+      const t = setTimeout(() => barcodeRef.current?.focus(), 150);
+      return () => clearTimeout(t);
+    }
+  }, [createOpen]);
 
   async function refresh() {
     setLoading(true);
@@ -332,6 +341,7 @@ export function OrdersPage() {
             </div>
             <div className="flex items-center gap-2">
               <input
+                ref={barcodeRef}
                 className="h-10 flex-1 rounded-[var(--radius-input)] border border-border/60 bg-background px-2 text-sm"
                 placeholder="🔎 Barcode kiriting yoki skaner o'qiting + Enter"
                 value={barcodeInput}
