@@ -5,9 +5,11 @@ import { Input } from "@/ui/Input";
 import { Modal } from "@/ui/Modal";
 import { useToast } from "@/ui/Toast";
 import { useAuth } from "@/auth/AuthProvider";
+import { CameraScannerModal } from "@/ui/CameraScannerModal";
 import { cn } from "@/lib/cn";
 import { formatMoney } from "@/lib/money";
-import type { Order, OrderItem, OrderSource, OrderStatus } from "@/types";
+import { listProducts } from "@/services/products";
+import type { Order, OrderItem, OrderSource, OrderStatus, Product } from "@/types";
 import {
   ORDER_SOURCE_LABELS,
   ORDER_STATUS_LABELS,
@@ -56,6 +58,11 @@ export function OrdersPage() {
   const [draftItems, setDraftItems] = React.useState<DraftItem[]>([{ name: "", qty: 1, price: 0 }]);
   const [saving, setSaving] = React.useState(false);
 
+  // Mahsulotlar (barcode -> nom/narx avtomatik) va kamera skaner
+  const [products, setProducts] = React.useState<Product[]>([]);
+  const [barcodeInput, setBarcodeInput] = React.useState("");
+  const [scanOpen, setScanOpen] = React.useState(false);
+
   async function refresh() {
     setLoading(true);
     try {
@@ -70,8 +77,37 @@ export function OrdersPage() {
   React.useEffect(() => {
     if (!shopId) return;
     refresh();
+    // Mahsulotlarni yuklaymiz — barcode/nom bo'yicha avtomatik to'ldirish uchun
+    listProducts(shopId)
+      .then(setProducts)
+      .catch(() => setProducts([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shopId]);
+
+  // Barcode -> mahsulotni topib, buyurtma qatoriga nom+narx bilan qo'shadi (yoki sonini oshiradi)
+  function addByBarcode(codeRaw: string) {
+    const code = String(codeRaw || "").trim();
+    if (!code) return;
+    const p = products.find((x) => String(x.barcode || "").trim() === code);
+    if (!p) {
+      toast.push("Bu barcode bo'yicha mahsulot topilmadi", "error");
+      return;
+    }
+    setDraftItems((arr) => {
+      // shu mahsulot allaqachon qatorlarda bo'lsa — sonini oshiramiz
+      const idx = arr.findIndex((it) => it.name === p.name);
+      if (idx >= 0) {
+        return arr.map((it, j) => (j === idx ? { ...it, qty: Number(it.qty || 0) + 1 } : it));
+      }
+      // bo'sh birinchi qatorga joylashtiramiz, aks holda yangi qator qo'shamiz
+      const emptyIdx = arr.findIndex((it) => !it.name.trim());
+      const row = { name: p.name, qty: 1, price: Number(p.price || 0) };
+      if (emptyIdx >= 0) return arr.map((it, j) => (j === emptyIdx ? row : it));
+      return [...arr, row];
+    });
+    setBarcodeInput("");
+    toast.push(`${p.name} qo'shildi`, "success");
+  }
 
   const filtered = filter === "all" ? orders : orders.filter((o) => o.status === filter);
 
@@ -289,6 +325,40 @@ export function OrdersPage() {
           <Input label="Telefon (ixtiyoriy)" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} />
           <Input label="Manzil (ixtiyoriy)" value={address} onChange={(e) => setAddress(e.target.value)} />
 
+          {/* Barcode bilan tez qo'shish: o'qitilganda nom va narx avtomatik chiqadi */}
+          <div>
+            <div className="mb-1 text-xs font-semibold text-muted-foreground">
+              Barcode bilan qo'shish (nom avtomatik chiqadi)
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                className="h-10 flex-1 rounded-[var(--radius-input)] border border-border/60 bg-background px-2 text-sm"
+                placeholder="🔎 Barcode kiriting yoki skaner o'qiting + Enter"
+                value={barcodeInput}
+                onChange={(e) => setBarcodeInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addByBarcode(barcodeInput);
+                  }
+                }}
+              />
+              <Button variant="secondary" onClick={() => addByBarcode(barcodeInput)}>
+                Qo'shish
+              </Button>
+              <Button variant="secondary" title="Kamera bilan skan" onClick={() => setScanOpen(true)}>
+                📷
+              </Button>
+            </div>
+          </div>
+
+          {/* Barcha mahsulot nomlari — nom yozganda avtomatik taklif chiqadi */}
+          <datalist id="orders-product-names">
+            {products.map((p) => (
+              <option key={p.id} value={p.name} />
+            ))}
+          </datalist>
+
           <div>
             <div className="mb-1 text-xs font-semibold text-muted-foreground">Mahsulotlar</div>
             <div className="space-y-2">
@@ -297,10 +367,18 @@ export function OrdersPage() {
                   <input
                     className="h-10 flex-1 rounded-[var(--radius-input)] border border-border/60 bg-background px-2 text-sm"
                     placeholder="Mahsulot nomi"
+                    list="orders-product-names"
                     value={it.name}
-                    onChange={(e) =>
-                      setDraftItems((arr) => arr.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))
-                    }
+                    onChange={(e) => {
+                      const name = e.target.value;
+                      // Nom katalogdagi mahsulotga to'liq mos kelsa — narxni avtomatik qo'yamiz
+                      const match = products.find((p) => p.name === name);
+                      setDraftItems((arr) =>
+                        arr.map((x, j) =>
+                          j === i ? { ...x, name, price: match ? Number(match.price || 0) : x.price } : x
+                        )
+                      );
+                    }}
                   />
                   <input
                     className="h-10 w-16 rounded-[var(--radius-input)] border border-border/60 bg-background px-2 text-center text-sm"
@@ -354,6 +432,19 @@ export function OrdersPage() {
           </div>
         </div>
       </Modal>
+
+      {/* Kamera barcode skaneri — o'qilgan barcode buyurtmaga nom bilan qo'shiladi */}
+      <CameraScannerModal
+        open={scanOpen}
+        title="Barcode skaner"
+        description="Mahsulot barcode'ini o'qiting — nomi avtomatik qo'shiladi."
+        mode="single"
+        onClose={() => setScanOpen(false)}
+        onDetected={(code) => {
+          setScanOpen(false);
+          addByBarcode(code);
+        }}
+      />
     </div>
   );
 }
