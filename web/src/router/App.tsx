@@ -43,11 +43,18 @@ function Protected({ children }: { children: React.ReactNode }) {
 }
 
 export function RequireActiveShop({ children }: { children: React.ReactNode }) {
-  const { user, role, shopId } = useAuth();
-  // SuperAdmin hamma joyga kira oladi
-  if (isSuperAdminUser(user)) return <>{children}</>;
-  // Pending/role yo‘q bo‘lsa — faqat Profil/So‘rov ekranlariga yo‘naltiramiz
-  if (!role || role === "pending" || !shopId || String(shopId).length < 3) {
+  const { user, role, shopId, loading } = useAuth();
+  // Yuklanmaguncha yo'naltirmaymiz (aks holda shopId kelgunча noto'g'ri redirect bo'ladi)
+  if (loading) return <div className="p-6 text-sm">Yuklanmoqda...</div>;
+  const hasShop = !!shopId && String(shopId).length >= 3;
+  // SuperAdmin: do'koni bo'lsa ishlaydi; do'koni bo'lmasa operatsion sahifalar
+  // (mijoz/harajat/ombor...) bo'sh shopId bilan ochilib xato bermasligi uchun
+  // Super Admin panelga (do'kon yaratish) yo'naltiramiz.
+  if (isSuperAdminUser(user)) {
+    return hasShop ? <>{children}</> : <Navigate to="/superadmin" replace />;
+  }
+  // Pending/role yo‘q yoki do'koni yo'q bo‘lsa — Profil/So‘rov ekraniga
+  if (!role || role === "pending" || !hasShop) {
     return <Navigate to="/profile" replace />;
   }
   return <>{children}</>;
