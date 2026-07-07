@@ -68,6 +68,10 @@ export function PurchasesPage() {
   const [scanOpen, setScanOpen] = React.useState(false);
   const [camMode, setCamMode] = React.useState<"single" | "multi">("single");
 
+  // Saqlashni ikki marta bosishga qarshi
+  const [submitting, setSubmitting] = React.useState(false);
+  const submittingRef = React.useRef(false);
+
   // Chek rasmidan import (Beta)
   const [importOpen, setImportOpen] = React.useState(false);
   const [receiptImportEnabled, setReceiptImportEnabled] = React.useState<boolean>(false);
@@ -282,10 +286,17 @@ async function generateIntoBarcodeField() {
   async function submit() {
     if (!user) return;
 
+    // Ikki marta bosishga qarshi himoya — saqlash tugagunча qayta kirmaydi
+    // (ref sinxron ishlaydi: tez ketma-ket bosishda ikkinchi bosish darhol to'xtaydi).
+    if (submittingRef.current) return;
+
     if (draft.length === 0) {
       toast.push("Kirim savati bo'sh", "error");
       return;
     }
+
+    submittingRef.current = true;
+    setSubmitting(true);
 
     const s = supplierId ? suppliers.find((x) => x.id === supplierId) : null;
     const payload = {
@@ -306,16 +317,20 @@ async function generateIntoBarcodeField() {
       operationId: `pur_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
     };
 
+    const resetForm = () => {
+      setDraft([]);
+      setSupplierId("");
+      setInvoiceNo("");
+      setNote("");
+      setPaidAmount(0);
+      setPaymentType("cash");
+    };
+
     try {
       if (typeof navigator !== "undefined" && !navigator.onLine) {
         enqueueOfflineJob({ type: "purchase.create", payload, shopId, userId: user.uid });
         toast.push("Internet yo'q — kirim offline navbatga qo'shildi", "warning");
-        setDraft([]);
-        setSupplierId("");
-        setInvoiceNo("");
-        setNote("");
-        setPaidAmount(0);
-        setPaymentType("cash");
+        resetForm();
         return;
       }
 
@@ -325,26 +340,19 @@ async function generateIntoBarcodeField() {
       invalidateProductCache();
 
       toast.push("Kirim saqlandi. Ombor avtomatik yangilandi.", "success");
-      setDraft([]);
-      setSupplierId("");
-      setInvoiceNo("");
-      setNote("");
-      setPaidAmount(0);
-      setPaymentType("cash");
+      resetForm();
       refresh();
     } catch (e: any) {
       if (shouldQueueByError(e)) {
         enqueueOfflineJob({ type: "purchase.create", payload, shopId, userId: user.uid });
         toast.push("Aloqa uzildi — kirim navbatga qo'shildi", "warning");
-        setDraft([]);
-        setSupplierId("");
-        setInvoiceNo("");
-        setNote("");
-        setPaidAmount(0);
-        setPaymentType("cash");
+        resetForm();
         return;
       }
       toast.push(e?.message ?? "Xato", "error");
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
     }
   }
 
@@ -450,7 +458,7 @@ async function generateIntoBarcodeField() {
               </div>
               <div className="flex gap-2">
                 <Button variant="ghost" onClick={() => setPreviewOpen(true)}>Ko'rish</Button>
-                <Button onClick={submit}>Saqlash</Button>
+                <Button onClick={submit} disabled={submitting}>{submitting ? "Saqlanmoqda..." : "Saqlash"}</Button>
               </div>
             </div>
 

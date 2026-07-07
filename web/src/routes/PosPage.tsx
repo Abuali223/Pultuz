@@ -142,6 +142,9 @@ export function PosPage() {
   const [checkoutOpen, setCheckoutOpen] = React.useState(false);
   const [paidAmount, setPaidAmount] = React.useState<number>(0);
   const [paymentNote, setPaymentNote] = React.useState<string>("");
+  // Savdo yakunlashni ikki marta bosishga qarshi
+  const [finalizing, setFinalizing] = React.useState(false);
+  const finalizingRef = React.useRef(false);
 
   // camera scanner
   const [cameraOpen, setCameraOpen] = React.useState(false);
@@ -344,6 +347,9 @@ React.useEffect(() => {
   async function finalize(paymentType: "cash" | "card", opts?: { asDebt?: boolean }) {
     if (!user) return;
 
+    // Ikki marta bosishga qarshi — savdo tugagunча qayta yuborilmaydi
+    if (finalizingRef.current) return;
+
     // TAN NARXDAN PAST SOTIB BO'LMAYDI — offline holatda ham client bloklaydi
     // (server ham tekshiradi, bu shunchaki tez va tushunarli xabar uchun).
     const belowCost = lines.find((l) => l.unitCost > 0 && l.unitPrice < l.unitCost - 0.001);
@@ -356,6 +362,9 @@ React.useEffect(() => {
     }
 
     if (!confirm("Savdo yakunlansinmi?")) return;
+
+    finalizingRef.current = true;
+    setFinalizing(true);
 
     // FIX: "Qarz" tugmasi bosilganda, summa kamaytirilmagan bo'lsa, to'langan=0 (to'liq qarz).
     let paidValue = Number(paidAmount) || 0;
@@ -436,6 +445,9 @@ React.useEffect(() => {
         return;
       }
       toast.push(e?.message ?? "Xato", "error");
+    } finally {
+      finalizingRef.current = false;
+      setFinalizing(false);
     }
   }
 
@@ -1002,14 +1014,14 @@ React.useEffect(() => {
           />
 
           <div className="grid grid-cols-3 gap-2">
-            <Button onClick={() => finalize("cash")}>Naqd</Button>
-            <Button onClick={() => finalize("card")} variant="secondary">
-              Karta
+            <Button onClick={() => finalize("cash")} disabled={finalizing}>{finalizing ? "..." : "Naqd"}</Button>
+            <Button onClick={() => finalize("card")} variant="secondary" disabled={finalizing}>
+              {finalizing ? "..." : "Karta"}
             </Button>
             <Button
               onClick={() => finalize("cash", { asDebt: true })}
               variant="outline"
-              disabled={!customer}
+              disabled={!customer || finalizing}
               title={!customer ? "Qarz uchun avval mijoz tanlang" : undefined}
             >
               Qarz

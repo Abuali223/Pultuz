@@ -20,6 +20,9 @@ export function ExpensesPage() {
   const [amountText, setAmountText] = React.useState("0");
   const [paymentType, setPaymentType] = React.useState<PaymentType>("cash");
   const [note, setNote] = React.useState("");
+  // Saqlashni ikki marta bosishga qarshi
+  const [saving, setSaving] = React.useState(false);
+  const savingRef = React.useRef(false);
 
   async function refresh() {
     try {
@@ -37,11 +40,14 @@ export function ExpensesPage() {
 
   async function save() {
     if (!user) return;
+    if (savingRef.current) return; // ikki marta bosishga qarshi
     const amount = parseMoneyInput(amountText);
     if (!category.trim() || amount <= 0) {
       toast.push("Kategoriya va summa kerak", "error");
       return;
     }
+    savingRef.current = true;
+    setSaving(true);
     const payload = {
       id: "tmp",
       shopId,
@@ -61,15 +67,15 @@ export function ExpensesPage() {
       setNote("");
     };
 
-    // Internet yo'q — offline navbatga qo'shamiz (internet kelganda avtomatik yuklanadi)
-    if (typeof navigator !== "undefined" && !navigator.onLine) {
-      enqueueOfflineJob({ type: "expense.create", payload, shopId, userId: user.uid });
-      toast.push("Internet yo'q — harajat offline navbatga qo'shildi", "warning");
-      resetForm();
-      return;
-    }
-
     try {
+      // Internet yo'q — offline navbatga qo'shamiz (internet kelganda avtomatik yuklanadi)
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        enqueueOfflineJob({ type: "expense.create", payload, shopId, userId: user.uid });
+        toast.push("Internet yo'q — harajat offline navbatga qo'shildi", "warning");
+        resetForm();
+        return;
+      }
+
       await createExpense(payload as any);
       toast.push("Harajat qo'shildi", "success");
       resetForm();
@@ -82,6 +88,9 @@ export function ExpensesPage() {
         return;
       }
       toast.push(e?.message ?? "Xato", "error");
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
     }
   }
 
@@ -163,7 +172,7 @@ export function ExpensesPage() {
           </div>
           <Input label="Izoh (ixtiyoriy)" value={note} onChange={(e) => setNote(e.target.value)} />
           <div className="flex gap-2">
-            <Button onClick={save}>Saqlash</Button>
+            <Button onClick={save} disabled={saving}>{saving ? "Saqlanmoqda..." : "Saqlash"}</Button>
             <Button variant="ghost" onClick={() => setOpen(false)}>Bekor</Button>
           </div>
         </div>
