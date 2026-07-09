@@ -163,13 +163,14 @@ export const createSaleTx = functions.runWith(RUNWITH).https.onCall(async (data,
         priceOverridden = Math.abs(unitPrice - listPrice) > 0.001;
       }
 
+      // MINIMAL (BELGILANGAN SOTISH) NARXDAN PAST SOTIB BO'LMAYDI — qimmatga sotish mumkin.
+      if (listPrice > 0 && unitPrice < listPrice - 0.001) {
+        throw new functions.https.HttpsError("failed-precondition", `${p.name}: narx minimal ${listPrice} dan past bo'la olmaydi`);
+      }
+
       if (isCutSm(p)) {
         if (cutTotalSm(p) < qty) throw new functions.https.HttpsError("failed-precondition", `Omborda yetarli emas: ${p.name}`);
         const unitCost = cutUnitCostPerSm(p);
-        // TAN NARXDAN PAST SOTIB BO'LMAYDI (zarariga savdoning oldini oladi).
-        if (unitCost > 0 && unitPrice < unitCost - 0.001) {
-          throw new functions.https.HttpsError("failed-precondition", `${p.name}: narx tan narxdan (${unitCost}) past bo'la olmaydi`);
-        }
         const lineTotal = round2(unitPrice * qty);
         const lineProfit = round2((unitPrice - unitCost) * qty);
         saleItems.push({ productId: it.productId, nameSnapshot: String(p.name ?? ""), barcodeSnapshot: String(p.barcode ?? ""), qty, unitSnapshot: String(p.unit ?? "sm"), unitPrice, listPriceSnapshot: listPrice, priceOverridden, unitCostSnapshot: unitCost, lineTotal, profit: lineProfit });
@@ -181,10 +182,6 @@ export const createSaleTx = functions.runWith(RUNWITH).https.onCall(async (data,
         const stock = Number(p.stock ?? 0);
         if (stock < qty) throw new functions.https.HttpsError("failed-precondition", `Omborda yetarli emas: ${p.name}`);
         const unitCost = Number(p.avgCost ?? 0);
-        // TAN NARXDAN PAST SOTIB BO'LMAYDI (zarariga savdoning oldini oladi).
-        if (unitCost > 0 && unitPrice < unitCost - 0.001) {
-          throw new functions.https.HttpsError("failed-precondition", `${p.name}: narx tan narxdan (${unitCost}) past bo'la olmaydi`);
-        }
         const lineTotal = round2(unitPrice * qty);
         const lineProfit = round2((unitPrice - unitCost) * qty);
         saleItems.push({ productId: it.productId, nameSnapshot: String(p.name ?? ""), barcodeSnapshot: String(p.barcode ?? ""), qty, unitSnapshot: String(p.unit ?? "dona"), unitPrice, listPriceSnapshot: listPrice, priceOverridden, unitCostSnapshot: unitCost, lineTotal, profit: lineProfit });

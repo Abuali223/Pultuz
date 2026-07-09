@@ -350,12 +350,12 @@ React.useEffect(() => {
     // Ikki marta bosishga qarshi — savdo tugagunча qayta yuborilmaydi
     if (finalizingRef.current) return;
 
-    // TAN NARXDAN PAST SOTIB BO'LMAYDI — offline holatda ham client bloklaydi
-    // (server ham tekshiradi, bu shunchaki tez va tushunarli xabar uchun).
-    const belowCost = lines.find((l) => l.unitCost > 0 && l.unitPrice < l.unitCost - 0.001);
-    if (belowCost) {
+    // MINIMAL (BELGILANGAN SOTISH) NARXDAN PAST SOTIB BO'LMAYDI — qimmatga sotish mumkin.
+    // Server ham tekshiradi; bu shunchaki tez va tushunarli xabar uchun.
+    const belowMin = lines.find((l) => l.listPrice > 0 && l.unitPrice < l.listPrice - 0.001);
+    if (belowMin) {
       toast.push(
-        `${belowCost.name}: narx tan narxdan (${formatMoney(belowCost.unitCost)}) past bo'la olmaydi`,
+        `${belowMin.name}: narx minimal ${formatMoney(belowMin.listPrice)} dan past bo'la olmaydi (qimmatga sotish mumkin)`,
         "error"
       );
       return;
@@ -735,54 +735,68 @@ React.useEffect(() => {
                 <div className="p-3 text-sm text-muted-foreground">Savat bo'sh.</div>
               ) : (
                 <div className="max-h-[46vh] overflow-auto no-scrollbar">
-                  {lines.map((l) => (
+                  {lines.map((l) => {
+                    const belowMin = l.listPrice > 0 && l.unitPrice < l.listPrice - 0.001;
+                    return (
                     <div
                       key={l.productId}
-                      className="flex items-center justify-between gap-3 rounded-[var(--radius-card)] border border-border/60 bg-card p-3 mb-2 last:mb-0"
+                      className="rounded-[var(--radius-card)] border border-border/60 bg-card p-3 mb-2 last:mb-0"
                     >
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-sm font-semibold">{l.name}</div>
-                        {/* Narxni qo'lda o'zgartirish: har bir savdoda alohida narx qo'yish mumkin.
-                            Foyda serverda kelgan narxdan avtomatik hisoblanadi. */}
-                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
-                          <span className="text-muted-foreground">Narx:</span>
-                          <PriceInput
-                            value={l.unitPrice}
-                            highlight={l.unitPrice !== l.listPrice}
-                            onCommit={(n) => setPrice(l.productId, n)}
-                          />
-                          {l.unitPrice !== l.listPrice ? (
-                            <button
-                              className="text-[11px] font-semibold text-muted-foreground underline"
-                              onClick={() => setPrice(l.productId, l.listPrice)}
-                              title={`Standart narxga qaytarish: ${formatMoney(l.listPrice)}`}
-                            >
-                              <s>{formatMoney(l.listPrice)}</s> ↺
-                            </button>
-                          ) : null}
-                          {l.unitCost > 0 && l.unitPrice < l.unitCost - 0.001 ? (
-                            <span
-                              className="rounded-full bg-destructive/10 px-2 py-0.5 text-[10px] font-bold text-destructive"
-                              title={`Tan narx: ${formatMoney(l.unitCost)}. Undan past sotib bo'lmaydi.`}
-                            >
-                              ⚠ Tan narxdan past!
-                            </span>
-                          ) : (
-                            <span
-                              className={cn(
-                                "rounded-full px-2 py-0.5 text-[10px] font-bold",
-                                l.unitPrice - l.unitCost > 0 ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"
-                              )}
-                              title={`Kelgan narx: ${formatMoney(l.unitCost)}. Foyda avtomatik hisoblanadi.`}
-                            >
-                              {l.unitPrice - l.unitCost >= 0 ? "+" : ""}
-                              {formatMoney(round2((l.unitPrice - l.unitCost) * l.qty))}
-                            </span>
-                          )}
+                      {/* 1-qator: nom + o'chirish */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-semibold">{l.name}</div>
+                          <div className="truncate text-[11px] text-muted-foreground">{l.barcode}</div>
                         </div>
+                        <button
+                          className="h-8 w-8 shrink-0 rounded-[var(--radius-icon)] border border-border/60 text-muted-foreground hover:bg-muted"
+                          onClick={() => remove(l.productId)}
+                          title="O'chirish"
+                        >
+                          ✕
+                        </button>
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      {/* 2-qator: narx (minimaldan past bo'lmaydi) + foyda/ogohlantirish */}
+                      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                        <span className="text-muted-foreground">Narx:</span>
+                        <PriceInput
+                          value={l.unitPrice}
+                          highlight={l.unitPrice !== l.listPrice}
+                          onCommit={(n) => setPrice(l.productId, n)}
+                        />
+                        {l.unitPrice !== l.listPrice ? (
+                          <button
+                            className="text-[11px] font-semibold text-muted-foreground underline"
+                            onClick={() => setPrice(l.productId, l.listPrice)}
+                            title={`Minimal narxga qaytarish: ${formatMoney(l.listPrice)}`}
+                          >
+                            min {formatMoney(l.listPrice)} ↺
+                          </button>
+                        ) : null}
+                        {belowMin ? (
+                          <span
+                            className="rounded-full bg-destructive/10 px-2 py-0.5 text-[10px] font-bold text-destructive"
+                            title={`Minimal narx: ${formatMoney(l.listPrice)}. Undan past sotib bo'lmaydi.`}
+                          >
+                            ⚠ Minimal narxdan past!
+                          </span>
+                        ) : (
+                          <span
+                            className={cn(
+                              "rounded-full px-2 py-0.5 text-[10px] font-bold",
+                              l.unitPrice - l.unitCost > 0 ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"
+                            )}
+                            title={`Kelgan narx: ${formatMoney(l.unitCost)}. Foyda avtomatik hisoblanadi.`}
+                          >
+                            {l.unitPrice - l.unitCost >= 0 ? "+" : ""}
+                            {formatMoney(round2((l.unitPrice - l.unitCost) * l.qty))}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* 3-qator: miqdor + qator summasi */}
+                      <div className="mt-2 flex items-center justify-between">
                         <div className="inline-flex items-center rounded-[var(--radius-card)] border border-border/60 bg-muted">
                           <button
                             className="h-9 w-9 rounded-[var(--radius-icon)] text-sm font-bold hover:bg-muted/70"
@@ -805,7 +819,7 @@ React.useEffect(() => {
                               const n = Number(raw);
                               if (!Number.isFinite(n)) return;
                               setQty(l.productId, n);
-}}
+                            }}
                           />
                           <div className="ml-1 min-w-[24px] text-xs font-semibold text-muted-foreground">{l.unit ?? ""}</div>
                           <button
@@ -820,20 +834,13 @@ React.useEffect(() => {
                           </button>
                         </div>
 
-                        <div className="w-20 text-right text-sm font-bold">
+                        <div className="text-right text-sm font-bold">
                           {formatMoney(round2(l.unitPrice * l.qty))}
                         </div>
-
-                        <button
-                          className="h-9 w-9 rounded-[var(--radius-icon)] border border-border/60 text-muted-foreground hover:bg-muted"
-                          onClick={() => remove(l.productId)}
-                          title="O'chirish"
-                        >
-                          ✕
-                        </button>
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

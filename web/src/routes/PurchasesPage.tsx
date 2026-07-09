@@ -475,10 +475,31 @@ async function generateIntoBarcodeField() {
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <div className="font-semibold leading-tight">{d.name}</div>
+                        <div className="flex items-center gap-2">
+                          <div className="font-semibold leading-tight truncate">{d.name}</div>
+                          {d.newProduct ? (
+                            <span className="shrink-0 rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-bold text-success">YANGI</span>
+                          ) : null}
+                        </div>
                         <div className="mt-1 text-[11px] text-muted-foreground">
                           Barcode: {d.barcode || "—"}
                         </div>
+                        {/* Yangi tovar ma'lumotlari — omborga kiritishdan oldin tekshirish uchun */}
+                        {d.newProduct ? (
+                          <div className="mt-1 space-y-0.5 text-[11px] text-muted-foreground">
+                            {(d.newProduct.brand || d.newProduct.model) ? (
+                              <div><span className="font-medium text-foreground/80">Brend/Model:</span> {[d.newProduct.brand, d.newProduct.model].filter(Boolean).join(" • ") || "—"}</div>
+                            ) : null}
+                            {d.newProduct.category ? (
+                              <div><span className="font-medium text-foreground/80">Turi:</span> {d.newProduct.category}</div>
+                            ) : null}
+                            <div><span className="font-medium text-foreground/80">Sotish narxi:</span> {formatMoney(Number(d.newProduct.price || 0))}</div>
+                            <div><span className="font-medium text-foreground/80">Birlik:</span> {d.newProduct.unit || "dona"}{d.newProduct.minStock ? ` • Min: ${d.newProduct.minStock}` : ""}</div>
+                            {d.newProduct.note ? (
+                              <div className="truncate" title={d.newProduct.note}><span className="font-medium text-foreground/80">Izoh:</span> {d.newProduct.note}</div>
+                            ) : null}
+                          </div>
+                        ) : null}
                       </div>
 
                       <Button
