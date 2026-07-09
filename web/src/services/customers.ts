@@ -90,7 +90,11 @@ export async function createCustomer(shopId: string, input: CreateCustomerInput)
 
   const ref = await addDoc(col(shopId, "customers"), {
     shopId, // ✅ REQUIRED by your Rules
-    ...input,
+    // Firestore `undefined` ni qabul qilmaydi — bo'sh maydonlarni "" ga aylantiramiz.
+    name: String(input.name || "").trim(),
+    phone: String(input.phone || "").trim(),
+    notes: String(input.notes || "").trim(),
+    address: String(input.address || "").trim(),
 
     // helpful for Telegram linking / exact matching
     phoneNorm,

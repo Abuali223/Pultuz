@@ -15,12 +15,15 @@ export async function createSupplier(params: {
   phone?: string;
   note?: string;
 }) {
-  const { shopId, ...rest } = params;
+  const { shopId } = params;
   const now = Date.now();
-  // Balans 0 dan boshlanadi (rules talab qiladi); xarid/to'lov server orqali o'zgaradi.
+  // Firestore `undefined` qiymatni qabul qilmaydi — bo'sh maydonlarni "" ga aylantiramiz.
   const ref = await addDoc(col(shopId, "suppliers"), {
     shopId,
-    ...rest,
+    name: String(params.name || "").trim(),
+    phone: String(params.phone || "").trim(),
+    note: String(params.note || "").trim(),
+    // Balans 0 dan boshlanadi (rules talab qiladi); xarid/to'lov server orqali o'zgaradi.
     totalPurchased: 0,
     totalPaid: 0,
     balance: 0,
