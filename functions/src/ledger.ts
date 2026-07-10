@@ -288,6 +288,7 @@ export const createPurchaseTx = functions.runWith(RUNWITH).https.onCall(async (d
         } else {
           rows.push({ ref: pref, productId: pref.id, qty, unitCost, newProduct: {
             name: String(it.newProduct.name || "").trim(), barcode: bc,
+            kind: it.newProduct.kind === "material" ? "material" : "product",
             category: it.newProduct.category ?? null, unit: it.newProduct.unit ?? null,
             model: it.newProduct.model ? String(it.newProduct.model).trim() : null,
             brand: it.newProduct.brand ? String(it.newProduct.brand).trim() : null,
@@ -340,7 +341,8 @@ export const createPurchaseTx = functions.runWith(RUNWITH).https.onCall(async (d
         if (np.price < 0) throw new functions.https.HttpsError("invalid-argument", "Sotish narxi xato");
         const isSm = String(np.unit ?? "").trim().toLowerCase() === "sm";
         tx.set(r.ref, {
-          shopId, name: np.name, barcode: np.barcode, category: np.category ?? null, unit: np.unit ?? "dona",
+          shopId, name: np.name, barcode: np.barcode, kind: np.kind ?? "product",
+          category: np.category ?? null, unit: np.unit ?? "dona",
           model: np.model ?? null, brand: np.brand ?? null, note: np.note ?? null, imageUrl: np.imageUrl ?? null,
           cutLengthCm: (isSm && Number(np.cutLengthCm ?? 0) > 0) ? Number(np.cutLengthCm) : null,
           cutWidthCm: (isSm && Number(np.cutWidthCm ?? 0) > 0) ? Number(np.cutWidthCm) : null,
@@ -677,4 +679,121 @@ export const expenseTx = functions.runWith(RUNWITH).https.onCall(async (data, co
 
   await writeAudit(shopId, caller.uid, caller.role, "EXPENSE_CREATE", "expense", expenseId, { category: String(data?.category || "Boshqa"), amount, paymentType });
   return expenseId;
+});
+
+// =========================================================
+// ISHLAB CHIQARISH (PRODUCTION / ASSEMBLY) — admin/omborchi
+// =========================================================
+// Xomashyo/detallardan tayyor mahsulot yig'iladi:
+//  - detallar ombordan chiqim qilinadi (stock -= qty)
+//  - tayyor mahsulot tannarxi = Σ(detal.avgCost × qty)
+//  - tayyor mahsulot omborga kiritiladi (weighted avgCost)
+//  - har bir yig'ish `productions` da yoziladi -> oy oxirida 1 dona necha pul
+export const createProductionTx = functions.runWith(RUNWITH).https.onCall(async (data, context) => {
+  const caller = await getCaller(context);
+  const shopId = String(data?.shopId || "");
+  assertShop(caller, shopId, { roles: ["warehouse"] });
+
+  const db = admin.firestore();
+  const qtyProduced = Number(data?.qtyProduced || 0);
+  if (!Number.isFinite(qtyProduced) || qtyProduced <= 0) throw new functions.https.HttpsError("invalid-argument", "Ishlab chiqarilgan miqdor > 0 bo'lishi kerak");
+  const materialsIn: Array<{ productId: string; qty: number }> = Array.isArray(data?.materials) ? data.materials : [];
+  if (materialsIn.length === 0) throw new functions.https.HttpsError("invalid-argument", "Kamida bitta detal kerak");
+
+  const finished = data?.finished || {};
+  const createdAt = Date.now();
+  const opId = String(data?.operationId || "").trim();
+  const productionNo = `MFG-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, "0")}${String(new Date().getDate()).padStart(2, "0")}-${Math.random().toString(16).slice(2, 8).toUpperCase()}`;
+
+  const result = await db.runTransaction(async (tx) => {
+    // Idempotentlik
+    const prodRef = opId ? db.doc(`shops/${shopId}/productions/${opId}`) : db.collection(`shops/${shopId}/productions`).doc();
+    if (opId) {
+      const ex = await tx.get(prodRef);
+      if (ex.exists) { const d = ex.data() as any; return { id: prodRef.id, unitCost: Number(d.unitCost || 0), totalCost: Number(d.totalCost || 0) }; }
+    }
+
+    // READ: detallar
+    const matRefs = materialsIn.map((m) => db.doc(`shops/${shopId}/products/${m.productId}`));
+    const matSnaps = await Promise.all(matRefs.map((r) => tx.get(r)));
+
+    // READ: tayyor mahsulot (mavjud yoki yangi)
+    let finishedRef: FirebaseFirestore.DocumentReference;
+    let finishedSnap: FirebaseFirestore.DocumentSnapshot | null = null;
+    let newFinished: any = null;
+    if (finished.productId) {
+      finishedRef = db.doc(`shops/${shopId}/products/${finished.productId}`);
+      finishedSnap = await tx.get(finishedRef);
+      if (!finishedSnap.exists) throw new functions.https.HttpsError("not-found", "Tayyor mahsulot topilmadi");
+    } else if (finished.newProduct) {
+      const bc = String(finished.newProduct.barcode || "").trim();
+      if (!bc) throw new functions.https.HttpsError("invalid-argument", "Tayyor mahsulot barcode xato");
+      finishedRef = db.doc(`shops/${shopId}/products/p_${bc}`);
+      finishedSnap = await tx.get(finishedRef);
+      newFinished = {
+        name: String(finished.newProduct.name || "").trim(),
+        barcode: bc,
+        price: round2(Number(finished.newProduct.price || 0)),
+        category: finished.newProduct.category ?? null,
+        unit: finished.newProduct.unit ?? "dona",
+        minStock: finished.newProduct.minStock ?? 0,
+      };
+      if (!newFinished.name) throw new functions.https.HttpsError("invalid-argument", "Tayyor mahsulot nomi kerak");
+    } else {
+      throw new functions.https.HttpsError("invalid-argument", "Tayyor mahsulot tanlanmagan");
+    }
+
+    // Detallarni tekshirish, tannarx hisoblash, ombordan chiqim
+    const materials: any[] = [];
+    let totalCost = 0;
+    for (let i = 0; i < materialsIn.length; i++) {
+      const m = materialsIn[i];
+      const snap = matSnaps[i];
+      if (!snap.exists) throw new functions.https.HttpsError("not-found", "Detal topilmadi");
+      const p = snap.data() as any;
+      const qty = Number(m.qty);
+      if (!Number.isFinite(qty) || qty <= 0) throw new functions.https.HttpsError("invalid-argument", `Detal miqdori xato: ${p.name}`);
+      const stock = Number(p.stock ?? 0);
+      if (stock < qty) throw new functions.https.HttpsError("failed-precondition", `Omborda yetarli emas: ${p.name} (bor: ${stock}, kerak: ${qty})`);
+      const unitCost = Number(p.avgCost ?? 0);
+      const lineCost = round2(unitCost * qty);
+      totalCost = round2(totalCost + lineCost);
+      materials.push({ productId: m.productId, nameSnapshot: String(p.name ?? ""), qty, unitCostSnapshot: unitCost, lineCost });
+      // chiqim
+      tx.update(matRefs[i], { stock: round2(stock - qty), updatedAt: createdAt });
+      tx.set(db.collection(`shops/${shopId}/stock_movements`).doc(), { shopId, productId: m.productId, type: "PRODUCTION_CONSUME", qty, unitCostSnapshot: unitCost, refType: "PRODUCTION", refNo: productionNo, createdAt, createdBy: caller.uid });
+    }
+
+    const unitCost = round2(totalCost / qtyProduced);
+
+    // Tayyor mahsulotni omborga kiritish
+    if (newFinished) {
+      tx.set(finishedRef, {
+        shopId, name: newFinished.name, barcode: newFinished.barcode, kind: "product",
+        category: newFinished.category, unit: newFinished.unit, price: newFinished.price,
+        minStock: newFinished.minStock, stock: round2(qtyProduced), avgCost: unitCost,
+        isDeleted: false, createdAt, updatedAt: createdAt,
+      }, { merge: true });
+    } else {
+      const fp = finishedSnap!.data() as any;
+      const oldStock = Number(fp.stock ?? 0); const oldAvg = Number(fp.avgCost ?? 0);
+      const newStock = round2(oldStock + qtyProduced);
+      const newAvg = newStock > 0 ? round2((round2(oldStock * oldAvg) + totalCost) / newStock) : unitCost;
+      tx.update(finishedRef, { stock: newStock, avgCost: newAvg, updatedAt: createdAt });
+    }
+    tx.set(db.collection(`shops/${shopId}/stock_movements`).doc(), { shopId, productId: finishedRef.id, type: "PRODUCTION_IN", qty: qtyProduced, unitCostSnapshot: unitCost, refType: "PRODUCTION", refNo: productionNo, createdAt, createdBy: caller.uid });
+
+    tx.set(prodRef, {
+      shopId, productionNo,
+      finishedProductId: finishedRef.id,
+      finishedNameSnapshot: newFinished ? newFinished.name : String((finishedSnap!.data() as any).name ?? ""),
+      qtyProduced, materials, totalCost, unitCost,
+      note: String(data?.note || ""), createdAt, createdBy: caller.uid,
+    });
+
+    return { id: prodRef.id, unitCost, totalCost };
+  });
+
+  await writeAudit(shopId, caller.uid, caller.role, "PRODUCTION_CREATE", "production", result.id, { productionNo, qtyProduced, unitCost: result.unitCost, totalCost: result.totalCost });
+  return { ...result, productionNo };
 });

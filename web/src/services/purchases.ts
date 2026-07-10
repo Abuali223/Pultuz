@@ -47,6 +47,7 @@ export async function createPurchase(params: {
       model?: string;
       brand?: string;
       note?: string;
+      kind?: "product" | "material";
     };
   }[];
   paidAmount: number;

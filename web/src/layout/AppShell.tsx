@@ -20,6 +20,7 @@ function titleFromPath(pathname: string) {
   if (pathname.startsWith("/pos")) return "Savdo";
   if (pathname.startsWith("/inventory")) return "Omborxona";
   if (pathname.startsWith("/purchases")) return "Kirim";
+  if (pathname.startsWith("/production")) return "Ishlab chiqarish";
   if (pathname.startsWith("/suppliers")) return "Ta’minotchilar";
   if (pathname.startsWith("/customers")) return "Mijozlar";
   if (pathname.startsWith("/orders")) return "Buyurtmalar";
@@ -44,6 +45,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     { label: "KASSA", to: "/pos", icon: <IconDashboard /> },
     { label: "OMBOR", to: "/inventory", icon: <IconFileText /> },
     { label: "KIRIM", to: "/purchases", icon: <IconFileText /> },
+    { label: "ISHLAB CHIQARISH", to: "/production", icon: <IconFileText /> },
     { label: "TAMINOTCHI", to: "/suppliers", icon: <IconUser /> },
     { label: "MIJOZ", to: "/customers", icon: <IconUser /> },
     { label: "BUYURTMA", to: "/orders", icon: <IconCart /> },
@@ -65,7 +67,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   const isPrivileged = role === "admin" || isSuperAdminUser(user);
   const NAV_BY_ROLE: Record<string, string[]> = {
     cashier: ["/pos", "/inventory", "/customers", "/orders", "/cash-history", "/profile"],
-    warehouse: ["/inventory", "/purchases", "/suppliers", "/orders", "/profile"],
+    warehouse: ["/inventory", "/purchases", "/production", "/suppliers", "/orders", "/profile"],
     viewer: ["/inventory", "/customers", "/orders", "/reports", "/cash-history", "/profile"],
     accountant: ["/inventory", "/customers", "/orders", "/reports", "/cash-history", "/profile"],
   };

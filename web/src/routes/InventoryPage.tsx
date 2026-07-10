@@ -118,7 +118,12 @@ export function InventoryPage() {
                     className="h-12 w-12 shrink-0"
                   />
                   <div className="min-w-0 flex-1">
-                    <div className="truncate font-semibold">{p.name}</div>
+                    <div className="flex items-center gap-2">
+                      <div className="truncate font-semibold">{p.name}</div>
+                      {(p as any).kind === "material" ? (
+                        <span className="shrink-0 rounded-full bg-warning/15 px-2 py-0.5 text-[10px] font-bold text-warning">XOMASHYO</span>
+                      ) : null}
+                    </div>
                     <div className="mt-1 space-y-0.5 text-[11px] text-muted-foreground">
                       <div>
                         <span className="font-medium text-foreground/80">Barcode:</span>{" "}

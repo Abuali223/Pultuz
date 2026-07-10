@@ -10,6 +10,13 @@ export type Product = {
   shopId: string;
   name: string;
   barcode: string;
+  /**
+   * Mahsulot turi:
+   *  - "product" (default) — tayyor mahsulot, kassada sotiladi
+   *  - "material" — xomashyo/detal (tunuka, kabel, shurup...), sotilmaydi,
+   *    faqat ishlab chiqarishda ishlatiladi
+   */
+  kind?: "product" | "material";
   category?: string;
   /** Pult modeli (masalan: "Artel smart", "Yasin 007") */
   model?: string;
@@ -236,6 +243,34 @@ export type Order = {
   createdAt: number;
   createdBy: string;
   updatedAt: number;
+};
+
+// =========================
+// ISHLAB CHIQARISH (Production / Assembly)
+// =========================
+// Xomashyo/detallardan tayyor mahsulot yig'ish. Har bir yig'ishda qaysi
+// detaldan necha ishlatilгani yoziladi -> tayyor mahsulot tannarxi aniq.
+export type ProductionMaterial = {
+  productId: string;
+  nameSnapshot: string;
+  qty: number;
+  unitCostSnapshot: number; // detalning o'sha paytdagi kelish narxi (avgCost)
+  lineCost: number; // qty * unitCostSnapshot
+};
+
+export type Production = {
+  id: string;
+  shopId: string;
+  productionNo: string;
+  finishedProductId: string;
+  finishedNameSnapshot: string;
+  qtyProduced: number;
+  materials: ProductionMaterial[];
+  totalCost: number; // barcha detallar jami narxi
+  unitCost: number; // 1 dona tayyor mahsulot tannarxi = totalCost / qtyProduced
+  note?: string;
+  createdAt: number;
+  createdBy: string;
 };
 
 export type AuditLog = {

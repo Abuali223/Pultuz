@@ -404,6 +404,16 @@ match /stock_movements/{moveId} {
         allow delete: if inMyShop(shopId) && isAdmin();
       }
 
+      // =========================
+      // 4.12) ISHLAB CHIQARISH (PRODUCTIONS)
+      // =========================
+      match /productions/{prodId} {
+        allow read: if inMyShop(shopId) && isViewer();
+        // SERVER-AUTHORITATIVE: yig'ish faqat createProductionTx orqali yoziladi.
+        allow create, update: if false;
+        allow delete: if isSuperAdmin();
+      }
+
       match /audit_logs/{logId} {
         allow read: if inMyShop(shopId) && isAdmin();
         // SERVER-AUTHORITATIVE: audit yozuvlari server tomonida (admin SDK) yoziladi.

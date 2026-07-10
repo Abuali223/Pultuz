@@ -224,6 +224,8 @@ React.useEffect(() => {
   const filteredProducts = React.useMemo(() => {
     const s = q.trim().toLowerCase();
     return products.filter((p) => {
+      // Xomashyo/detallar kassada sotilmaydi — faqat tayyor mahsulotlar
+      if ((p as any).kind === "material") return false;
       if (cat !== "all" && (p.category ?? "") !== cat) return false;
       if (!s) return true;
       return (
@@ -238,6 +240,11 @@ React.useEffect(() => {
   }, [products, q, cat]);
 
   function addProduct(p: Product, qty = 1) {
+    // Xomashyo/detal kassada sotilmaydi
+    if ((p as any).kind === "material") {
+      toast.push("Bu xomashyo/detal — kassada sotilmaydi (faqat ishlab chiqarishda)", "error");
+      return;
+    }
     const q = Math.max(0.01, Number(qty) || 0.01);
     if (isCutSmProduct(p)) {
       if (availableSm(p) <= 0) {

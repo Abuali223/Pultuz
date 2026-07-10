@@ -24,7 +24,7 @@ type DraftItem = {
   barcode: string;
   qty: number;
   unitCost: number;
-  newProduct?: NewProductForm;
+  newProduct?: NewProductForm & { kind?: "product" | "material" };
 };
 
 const UNIT_OPTIONS = ["dona", "kg", "litr", "metr", "sm", "quti", "paket", "set"];
@@ -39,6 +39,8 @@ type NewProductForm = {
   brand: string;
   /** Izoh — qo'shimcha ma'lumot */
   note: string;
+  /** Xomashyo/detal (sotilmaydi, faqat ishlab chiqarishda) */
+  isMaterial?: boolean;
   unit: string;
   price: number;
   minStock: number;
@@ -138,7 +140,7 @@ export function PurchasesPage() {
     p: { id: string; name: string; barcode: string; avgCost?: number },
     addQty: number,
     cost: number,
-    newProduct?: NewProductForm
+    newProduct?: NewProductForm & { kind?: "product" | "material" }
   ) {
     const item: DraftItem = {
       productId: p.id,
@@ -230,7 +232,8 @@ async function generateIntoBarcodeField() {
   if (!bc) return toast.push("Barcode generatsiya qilinmadi", "error");
 }
       if (!nm) return toast.push("Tovar nomi shart", "error");
-      if (Number(newForm.price || 0) <= 0) return toast.push("Sotish narxi shart", "error");
+      // Xomashyo/detal sotilmaydi — sotish narxi majburiy emas.
+      if (!newForm.isMaterial && Number(newForm.price || 0) <= 0) return toast.push("Sotish narxi shart", "error");
 
       const unitRaw = (newForm.unit || "dona").trim() || "dona";
       if (unitRaw === "sm") {
@@ -259,6 +262,7 @@ async function generateIntoBarcodeField() {
         {
           barcode: bc,
           name: nm,
+          kind: newForm.isMaterial ? "material" : "product",
           category: (newForm.category || "").trim(),
           model: (newForm.model || "").trim(),
           brand: (newForm.brand || "").trim(),
@@ -717,6 +721,18 @@ async function generateIntoBarcodeField() {
             Eslatma: Yangi tovarlar faqat shu oynadan yaratiladi. Keyin omborga avtomatik qo'shiladi.
           </div>
 
+          {/* Xomashyo/detal — sotilmaydi, faqat ishlab chiqarishda ishlatiladi */}
+          <label className="flex items-center gap-2 rounded-[var(--radius-card)] border border-border/40 bg-background/40 p-3 text-sm">
+            <input
+              type="checkbox"
+              checked={!!newForm.isMaterial}
+              onChange={(e) => setNewForm((s) => ({ ...s, isMaterial: e.target.checked }))}
+            />
+            <span>
+              <b>Bu xomashyo/detal</b> (tunuka, kabel, shurup...) — kassada sotilmaydi, faqat <b>Ishlab chiqarish</b>da ishlatiladi
+            </span>
+          </label>
+
           <div className="flex items-end gap-2">
             <div className="flex-1">
               <Input
@@ -799,7 +815,7 @@ async function generateIntoBarcodeField() {
 
           <div className="grid grid-cols-2 gap-2">
             <Input
-              label="Sotish narxi (majburiy)"
+              label={newForm.isMaterial ? "Sotish narxi (xomashyo — shart emas)" : "Sotish narxi (majburiy)"}
               type="number"
               value={String(newForm.price)}
               onChange={(e) => setNewForm((s) => ({ ...s, price: Number(e.target.value) }))}

@@ -21,6 +21,7 @@ import { StaffPage } from "@/routes/StaffPage";
 import { StaffJoinPage } from "@/routes/StaffJoinPage";
 import { AdminDashboardPage } from "@/routes/AdminDashboardPage";
 import { OrdersPage } from "@/routes/OrdersPage";
+import { ProductionPage } from "@/routes/ProductionPage";
 import { isSuperAdminUser } from "@/auth/superAdmin";
 
 function Protected({ children }: { children: React.ReactNode }) {
@@ -97,6 +98,7 @@ export function App() {
               <Route path="/customers" element={<RequireActiveShop><CustomersPage /></RequireActiveShop>} />
               <Route path="/customers/:id" element={<CustomerDetailPage />} />
               <Route path="/orders" element={<RequireActiveShop><OrdersPage /></RequireActiveShop>} />
+              <Route path="/production" element={<RequireActiveShop><ProductionPage /></RequireActiveShop>} />
               <Route path="/expenses" element={<RequireActiveShop><ExpensesPage /></RequireActiveShop>} />
               <Route path="/reports" element={<RequireActiveShop><ReportsPage /></RequireActiveShop>} />
               <Route path="/cash-history" element={<RequireActiveShop><CashHistoryPage /></RequireActiveShop>} />
