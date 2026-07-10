@@ -9,6 +9,7 @@ import { CameraScannerModal } from "@/ui/CameraScannerModal";
 import { cn } from "@/lib/cn";
 import { formatMoney } from "@/lib/money";
 import { listProducts } from "@/services/products";
+import { MoneyInput } from "@/ui/MoneyInput";
 import type { Order, OrderItem, OrderSource, OrderStatus, Product } from "@/types";
 import {
   ORDER_SOURCE_LABELS,
@@ -400,14 +401,13 @@ export function OrdersPage() {
                       setDraftItems((arr) => arr.map((x, j) => (j === i ? { ...x, qty: Number(e.target.value) } : x)))
                     }
                   />
-                  <input
-                    className="h-10 w-24 rounded-[var(--radius-input)] border border-border/60 bg-background px-2 text-right text-sm"
-                    type="number"
-                    min={0}
+                  <MoneyInput
+                    containerClassName="w-28 shrink-0"
+                    inputClassName="h-10 text-right"
                     title="Narx"
                     value={it.price}
-                    onChange={(e) =>
-                      setDraftItems((arr) => arr.map((x, j) => (j === i ? { ...x, price: Number(e.target.value) } : x)))
+                    onValueChange={(n) =>
+                      setDraftItems((arr) => arr.map((x, j) => (j === i ? { ...x, price: n } : x)))
                     }
                   />
                   <button

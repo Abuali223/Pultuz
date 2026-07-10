@@ -12,7 +12,7 @@ import { addCustomerPayment, getCustomer, listCustomerPayments } from "@/service
 import { listSalesByCustomer } from "@/services/sales";
 import { sendCustomerSalesPdf } from "@/services/customerSalesPdf";
 import type { Customer, CustomerPayment, PaymentType, Sale } from "@/types";
-import { formatMoney } from "@/lib/money";
+import { formatMoney, formatMoneyInput } from "@/lib/money";
 
 function toDateSafe(v: any): Date {
   if (!v) return new Date(0);
@@ -677,7 +677,7 @@ export function CustomerDetailPage() {
 
           <div>
             <div className="text-xs text-muted mb-1">Summa</div>
-            <Input value={payAmount} onChange={(e: any) => setPayAmount(e.target.value)} placeholder="Masalan: 10000" />
+            <Input value={payAmount} onChange={(e: any) => setPayAmount(formatMoneyInput(e.target.value))} placeholder="Masalan: 10 000" inputMode="decimal" />
           </div>
 
           <div>

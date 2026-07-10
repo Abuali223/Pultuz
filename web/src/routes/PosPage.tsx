@@ -41,7 +41,8 @@ import { enqueueOfflineJob, shouldQueueByError } from "@/services/offlineQueue";
 
 import type { Product } from "@/types";
 import { cn } from "@/lib/cn";
-import { formatMoney, round2 } from "@/lib/money";
+import { formatMoney, round2, formatMoneyInput, parseMoneyInput } from "@/lib/money";
+import { MoneyInput } from "@/ui/MoneyInput";
 
 function isLikelyBarcode(raw: string) {
   const s = String(raw || "").trim().replace(/\D/g, "");
@@ -61,38 +62,32 @@ function PriceInput({
   highlight: boolean;
   onCommit: (n: number) => void;
 }) {
-  const [text, setText] = React.useState<string>(String(value));
+  const [text, setText] = React.useState<string>(() => (value ? formatMoneyInput(String(value)) : ""));
   const [editing, setEditing] = React.useState(false);
 
   // Tashqi qiymat o'zgarsa (masalan ↺ tugmasi) va tahrirlanmayotgan bo'lsa — sinxron
   React.useEffect(() => {
-    if (!editing) setText(String(value));
+    if (!editing) setText(value ? formatMoneyInput(String(value)) : "");
   }, [value, editing]);
 
   return (
     <input
       className={cn(
-        "h-8 w-24 rounded-[var(--radius-input)] border bg-background px-2 text-sm font-semibold outline-none",
+        "h-8 w-28 rounded-[var(--radius-input)] border bg-background px-2 text-sm font-semibold outline-none",
         highlight ? "border-warning text-warning" : "border-border/60"
       )}
-      type="number"
-      min={0}
-      step="any"
+      type="text"
+      inputMode="decimal"
       value={text}
       onFocus={() => setEditing(true)}
       onChange={(e) => {
-        const raw = e.target.value;
-        setText(raw);
-        if (raw === "") return;
-        const n = Number(raw);
-        if (Number.isFinite(n) && n >= 0) onCommit(n);
+        const f = formatMoneyInput(e.target.value); // avtomatik minglik ajratish
+        setText(f);
+        onCommit(parseMoneyInput(f));
       }}
       onBlur={() => {
         setEditing(false);
-        const n = Number(text);
-        if (text === "" || !Number.isFinite(n) || n < 0) {
-          setText(String(value)); // noto'g'ri qiymat — oldingisiga qaytar
-        }
+        setText(value ? formatMoneyInput(String(value)) : "");
       }}
       title="Sotish narxi (qo'lda o'zgartirish mumkin)"
     />
@@ -1013,11 +1008,10 @@ React.useEffect(() => {
             <div className="text-2xl font-extrabold">{formatMoney(total)}</div>
           </div>
 
-          <Input
+          <MoneyInput
             label="To'langan summa (ixtiyoriy, default jami)"
-            type="number"
-            value={String(paidAmount)}
-            onChange={(e) => setPaidAmount(Number(e.target.value))}
+            value={paidAmount}
+            onValueChange={(n) => setPaidAmount(n)}
           />
 
           <Input

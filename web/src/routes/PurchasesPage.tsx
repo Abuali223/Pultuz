@@ -11,6 +11,7 @@ import { listSuppliers } from "@/services/suppliers";
 import { createPurchase, listPurchases } from "@/services/purchases";
 import type { PaymentType, Product, Supplier, Purchase } from "@/types";
 import { formatMoney, round2 } from "@/lib/money";
+import { MoneyInput } from "@/ui/MoneyInput";
 import { generateEAN13 } from "@/lib/ean13";
 import { ReceiptImportModal } from "@/modules/receiptImport/ReceiptImportModal";
 import { listProducts } from "@/services/products";
@@ -438,7 +439,7 @@ async function generateIntoBarcodeField() {
                 </div>
                 <div>
                   <div className="hidden sm:block text-xs text-muted-foreground">Kelish narxi</div>
-                  <Input type="number" value={String(unitCost)} onChange={(e) => setUnitCost(Number(e.target.value))} />
+                  <MoneyInput value={unitCost} onValueChange={(n) => setUnitCost(n)} />
                 </div>
               </div>
 
@@ -533,14 +534,9 @@ async function generateIntoBarcodeField() {
 
                       <div>
                         <div className="text-[11px] text-muted-foreground">Kelish narxi</div>
-                        <Input
+                        <MoneyInput
                           value={d.unitCost}
-                          onChange={(e) =>
-                            updateLine(d.productId, { unitCost: Number(e.target.value || 0) })
-                          }
-                          type="number"
-                          inputMode="decimal"
-                          step="0.01"
+                          onValueChange={(n) => updateLine(d.productId, { unitCost: n })}
                         />
                       </div>
                     </div>
@@ -581,7 +577,7 @@ async function generateIntoBarcodeField() {
 
                   <div>
                     <div className="hidden sm:block text-xs text-muted-foreground">Hozir to'landi</div>
-                    <Input type="number" value={String(paidAmount)} onChange={(e) => setPaidAmount(Number(e.target.value))} />
+                    <MoneyInput value={paidAmount} onValueChange={(n) => setPaidAmount(n)} />
                     <div className="hidden sm:block text-xs text-muted-foreground mt-1">0 bo'lsa — nasiya (qarz) bo'ladi.</div>
                   </div>
 
@@ -814,11 +810,10 @@ async function generateIntoBarcodeField() {
           </div>
 
           <div className="grid grid-cols-2 gap-2">
-            <Input
+            <MoneyInput
               label={newForm.isMaterial ? "Sotish narxi (xomashyo — shart emas)" : "Sotish narxi (majburiy)"}
-              type="number"
-              value={String(newForm.price)}
-              onChange={(e) => setNewForm((s) => ({ ...s, price: Number(e.target.value) }))}
+              value={newForm.price}
+              onValueChange={(n) => setNewForm((s) => ({ ...s, price: n }))}
             />
             <Input
               label="Min qoldiq (alert)"

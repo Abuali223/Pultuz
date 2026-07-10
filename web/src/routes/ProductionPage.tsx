@@ -8,6 +8,7 @@ import { cn } from "@/lib/cn";
 import { formatMoney, round2 } from "@/lib/money";
 import { generateEAN13 } from "@/lib/ean13";
 import { listProducts } from "@/services/products";
+import { MoneyInput } from "@/ui/MoneyInput";
 import { createProduction, listProductions, summarizeByProduct } from "@/services/production";
 import { invalidateProductCache } from "@/ui/GlobalSearch";
 import type { Product, Production } from "@/types";
@@ -182,7 +183,7 @@ export function ProductionPage() {
                   <Input label="Mahsulot nomi (masalan: Antena)" value={newName} onChange={(e) => setNewName(e.target.value)} />
                   <div className="grid grid-cols-2 gap-2">
                     <Input label="Barcode (bo'sh = avtomatik)" value={newBarcode} onChange={(e) => setNewBarcode(e.target.value)} />
-                    <Input label="Sotish narxi" type="number" value={String(newPrice)} onChange={(e) => setNewPrice(Number(e.target.value))} />
+                    <MoneyInput label="Sotish narxi" value={newPrice} onValueChange={(n) => setNewPrice(n)} />
                   </div>
                 </div>
               )}
